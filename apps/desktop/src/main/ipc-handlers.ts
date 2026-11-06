@@ -5159,6 +5159,7 @@ export function setupIpcHandlers(mainWindow: BrowserWindow): void {
     try {
       switch (cmd.kind) {
         case 'arm':
+          if (refuseMaameForceArm(true, cmd.force)) return false;
           return await sendCommandLongToVehicle(vehicleKey, 400, { param1: 1, param2: cmd.force ? 21196 : 0 });
         case 'disarm':
           return await sendCommandLongToVehicle(vehicleKey, 400, { param1: 0, param2: cmd.force ? 21196 : 0 });
@@ -8701,6 +8702,7 @@ export function setupIpcHandlers(mainWindow: BrowserWindow): void {
 
   // ARM / DISARM via MAV_CMD_COMPONENT_ARM_DISARM (command 400)
   ipcMain.handle(IPC_CHANNELS.MAVLINK_ARM_DISARM, async (_, arm: boolean, force?: boolean): Promise<boolean> => {
+    if (refuseMaameForceArm(arm, force)) return false;
     const target = activeFlightTarget();
     if (!target) {
       // Don't fail silently — this reads as a dead button otherwise.
@@ -9238,6 +9240,18 @@ export function setupIpcHandlers(mainWindow: BrowserWindow): void {
       return false;
     }
   });
+
+  /**
+   * Maame flies with no RC: force-arming would skip the Pi arming gate, GPS and
+   * fence checks with nobody able to take over. Refuse it on Maame connections.
+   * Force-DISARM stays allowed (the emergency motor kill relies on it).
+   */
+  function refuseMaameForceArm(arm: boolean, force?: boolean): boolean {
+    if (!arm || !force || !(currentTransport instanceof RedundantTransport)) return false;
+    emitStatusText(mainWindow, 4, 'Force arm is disabled for Maame (no RC): fix the pre-arm failures instead');
+    sendLog(mainWindow, 'warn', 'Force ARM refused on a Maame connection');
+    return true;
+  }
 
   // Maame: Pi companion ready/standby. MAV_CMD_USER_2 to comp 191 (companion/startup-files/maame_ready.py);
   // the Pi answers with its heartbeat status and a STATUSTEXT.
