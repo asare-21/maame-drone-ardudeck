@@ -462,6 +462,7 @@ const signingStore = new Store<{
 import type { ParamChange, ParamCheckpoint, BoardParamHistory } from '../shared/param-history-types.js';
 import { areasToKml, type ExportArea } from '../shared/kml-export.js';
 import { evaluateLinkLiveness, LINK_STALE_MS, LINK_DEAD_MS } from './link-liveness.js';
+import { RedundantTransport, type LinkChange } from './maame/redundant-transport.js';
 import { installTerrainUplink, terrainUplink } from './terrain/terrain-uplink.js';
 const paramHistoryStore = new Store<{ boards: Record<string, BoardParamHistory> }>({
   name: 'param-history',
@@ -6632,6 +6633,22 @@ export function setupIpcHandlers(mainWindow: BrowserWindow): void {
             transportName = `UDP :${options.udpPort ?? 14550}`;
           }
           break;
+        case 'maame': {
+          // One drone over several links with failover (main/maame/redundant-transport.ts).
+          const links = (options.maameLinks ?? []).map((l) => ({ name: l.name, transport: buildBackgroundTransport(l.options) }));
+          const maame = new RedundantTransport(links);
+          maame.on('linkchange', (c: LinkChange) => {
+            sendLog(mainWindow, 'warn', `Maame link switched: ${c.from} -> ${c.to}`, c.reason);
+            // ArduPilot only streams telemetry to a link that asked for it
+            void sendStreamRateRequests(mainWindow, currentTelemetrySpeed);
+          });
+          maame.on('linkerror', (e: { name: string; error: unknown }) => {
+            sendLog(mainWindow, 'warn', `Maame ${e.name} link error`, e.error instanceof Error ? e.error.message : String(e.error));
+          });
+          currentTransport = maame;
+          transportName = `Maame ${maame.portName}`;
+          break;
+        }
         default:
           throw new Error(`Invalid connection type: ${options.type ?? 'undefined'}. Must be 'serial', 'tcp', or 'udp'.`);
       }

@@ -5,6 +5,7 @@
  */
 import type { ConnectionMemory, SavedConnection } from '../stores/settings-store';
 import { useSettingsStore } from '../stores/settings-store';
+import type { ConnectOptions } from '../../shared/ipc-channels';
 
 export const MAAME = {
   fcSysid: 1,
@@ -33,6 +34,28 @@ export const MAAME_WIFI_CONNECTION: SavedConnection = {
   udpClientLocalPort: MAAME.wifiPort,
   lastUsed: 0,
 };
+
+/**
+ * One connection to Maame over every available link, best first: Wi-Fi (Pi
+ * mavlink-router), then the SiK radio when a port is chosen. The main process
+ * fails over between them (main/maame/redundant-transport.ts).
+ */
+export function maameConnectOptions(sikPort?: string): ConnectOptions {
+  const maameLinks: NonNullable<ConnectOptions['maameLinks']> = [
+    {
+      name: 'Wi-Fi',
+      options: {
+        type: 'udp',
+        udpMode: 'client',
+        udpRemoteHost: MAAME.wifiHost,
+        udpRemotePort: MAAME.wifiPort,
+        udpClientLocalPort: MAAME.wifiPort,
+      },
+    },
+  ];
+  if (sikPort) maameLinks.push({ name: 'SiK', options: { type: 'serial', port: sikPort, baudRate: MAAME.sikBaud } });
+  return { type: 'maame', protocol: 'mavlink', maameLinks };
+}
 
 /**
  * Connection-memory changes that give a fresh install Maame defaults.

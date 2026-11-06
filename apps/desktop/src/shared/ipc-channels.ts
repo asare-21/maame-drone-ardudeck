@@ -1116,7 +1116,10 @@ export * from './camera-types';
  * Connection options for comms:connect
  */
 export interface ConnectOptions {
-  type: 'serial' | 'tcp' | 'udp';
+  /** 'maame': one vehicle over several links (maameLinks, best first) with automatic failover. */
+  type: 'serial' | 'tcp' | 'udp' | 'maame';
+  /** type 'maame' only: the links to the drone in priority order, e.g. Wi-Fi then SiK. */
+  maameLinks?: Array<{ name: string; options: ConnectOptions }>;
   port?: string;
   baudRate?: number;
   /** Serial only: hardware flow control (RTS/CTS), for radios such as RFD900/868 set to RTSCTS. */
@@ -1156,7 +1159,7 @@ export interface ConnectOptions {
 export interface TransportInfoIpc {
   id: string;
   /** Connection kind, from the original config. */
-  kind: 'serial' | 'tcp' | 'udp';
+  kind: ConnectOptions['type'];
   /** Human-readable label for display (e.g. "UDP :14550", "/dev/ttyACM0"). */
   label: string;
   packetsRx: number;
@@ -1387,7 +1390,7 @@ export interface ConnectionState {
   /** Unique board identifier from AUTOPILOT_VERSION uid/uid2 (hex string) */
   boardUid?: string;
   /** Connection type for transport-aware logic (signing, reconnect, etc.) */
-  connectionType?: 'serial' | 'tcp' | 'udp';
+  connectionType?: ConnectOptions['type'];
   // MAVLink signing
   signingEnabled?: boolean;
   /** True when we detect the FC is sending signed packets back */

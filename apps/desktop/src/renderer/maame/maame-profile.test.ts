@@ -1,5 +1,16 @@
 import { describe, expect, it } from 'vitest';
-import { MAAME, MAAME_WIFI_CONNECTION, maameConnectionSeed } from './maame-profile';
+import { MAAME, MAAME_WIFI_CONNECTION, maameConnectOptions, maameConnectionSeed } from './maame-profile';
+
+describe('maameConnectOptions', () => {
+  it('puts Wi-Fi first and adds SiK at 57600 only when a port is chosen', () => {
+    expect(maameConnectOptions().maameLinks?.map((l) => l.name)).toEqual(['Wi-Fi']);
+    const both = maameConnectOptions('/dev/cu.usbserial-SIK');
+    expect(both.type).toBe('maame');
+    expect(both.maameLinks?.map((l) => l.name)).toEqual(['Wi-Fi', 'SiK']);
+    expect(both.maameLinks?.[0]?.options).toMatchObject({ type: 'udp', udpMode: 'client', udpRemoteHost: 'maame.local', udpRemotePort: 14550 });
+    expect(both.maameLinks?.[1]?.options).toEqual({ type: 'serial', port: '/dev/cu.usbserial-SIK', baudRate: MAAME.sikBaud });
+  });
+});
 
 describe('maameConnectionSeed', () => {
   it('seeds the Wi-Fi preset and SiK baud on a fresh install', () => {
