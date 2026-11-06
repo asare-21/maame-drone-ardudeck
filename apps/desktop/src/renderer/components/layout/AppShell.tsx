@@ -15,6 +15,7 @@ import { WarpOverlay } from '../tribute/WarpOverlay';
 import { DedicationMoment } from '../tribute/DedicationMoment';
 import { ArmDisarmButton } from './ArmDisarmButton';
 import { ScriptHealthBadge } from '../script-installer/ScriptHealthBadge';
+import { MaameLinkBadge } from '../../maame/MaameLinkBadge';
 import { QuickLaunchMenu } from './QuickLaunchMenu';
 import { betaLabel } from '../../utils/version-label';
 import iconImage from '../../assets/icon.png';
@@ -111,6 +112,9 @@ export function AppShell({ children }: AppShellProps) {
 
           {/* FC-side Lua script health (only when advanced commands unlocked + AD_HB seen) */}
           <ScriptHealthBadge />
+
+          {/* Maame Wi-Fi / SiK link health (only on a Maame multi-link connection) */}
+          <MaameLinkBadge />
 
           {/* ARM / DISARM button */}
           <ArmDisarmButton />

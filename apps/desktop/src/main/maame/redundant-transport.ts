@@ -12,6 +12,9 @@
  *     failsafe on each port.
  *   - Failover: leave the active link once it has been silent for staleMs;
  *     return to a higher-priority link once it has been alive for recoverMs.
+ *   - Self-healing: a link that closes (cable pulled, TCP drop) is reopened
+ *     every reopenMs. The session only closes on close(); if every link stays
+ *     silent, ArduDeck's own link-liveness watchdog ends it.
  */
 import { BaseTransport, type Transport } from '@ardudeck/comms';
 
@@ -31,9 +34,11 @@ export interface LinkHealth {
 export interface FailoverTiming {
   staleMs: number;
   recoverMs: number;
+  /** Retry interval for a link that has closed. */
+  reopenMs?: number;
 }
 
-export const DEFAULT_TIMING: FailoverTiming = { staleMs: 3000, recoverMs: 5000 };
+export const DEFAULT_TIMING: FailoverTiming = { staleMs: 3000, recoverMs: 5000, reopenMs: 3000 };
 
 export interface LinkChange {
   from: string;
@@ -82,6 +87,8 @@ export class RedundantTransport extends BaseTransport {
   private readonly now: () => number;
   private active = 0;
   private timer: NodeJS.Timeout | null = null;
+  private readonly reopenTimers = new Set<NodeJS.Timeout>();
+  private lastStatusSig = '';
   private opened = false;
 
   constructor(links: RedundantLink[], timing: FailoverTiming = DEFAULT_TIMING, now: () => number = Date.now) {
@@ -128,11 +135,10 @@ export class RedundantTransport extends BaseTransport {
       link.transport.on('error', (err: Error) => this.emit('linkerror', { name: link.name, error: err }));
       link.transport.on('close', () => {
         this.health[i] = { lastRxMs: null, aliveSinceMs: null };
-        if (this.opened && !this.isOpen) {
-          this.opened = false;
-          this.stopTimer();
-          this.emit('close');
-        }
+        if (!this.opened) return;
+        this.emit('linkerror', { name: link.name, error: new Error('link closed, retrying') });
+        this.scheduleReopen(i);
+        this.evaluate();
       });
     });
     const results = await Promise.allSettled(this.links.map((l) => l.transport.open()));
@@ -140,10 +146,13 @@ export class RedundantTransport extends BaseTransport {
     if (failed.length === results.length) {
       throw new Error(`No Maame link could be opened: ${failed.map((r) => String(r.reason?.message ?? r.reason)).join('; ')}`);
     }
-    results.forEach((r, i) => {
-      if (r.status === 'rejected') this.emit('linkerror', { name: this.links[i]!.name, error: r.reason });
-    });
     this.opened = true;
+    results.forEach((r, i) => {
+      if (r.status === 'rejected') {
+        this.emit('linkerror', { name: this.links[i]!.name, error: r.reason });
+        this.scheduleReopen(i); // e.g. SiK radio not plugged in yet
+      }
+    });
     this.timer = setInterval(() => this.evaluate(), 250);
     this.emit('open');
   }
@@ -151,6 +160,8 @@ export class RedundantTransport extends BaseTransport {
   async close(): Promise<void> {
     this.opened = false;
     this.stopTimer();
+    for (const t of this.reopenTimers) clearTimeout(t);
+    this.reopenTimers.clear();
     await Promise.allSettled(this.links.map((l) => (l.transport.isOpen ? l.transport.close() : Promise.resolve())));
     this.emit('close');
   }
@@ -173,14 +184,30 @@ export class RedundantTransport extends BaseTransport {
     await Promise.allSettled(this.links.map((l) => l.transport.discardInBuffer()));
   }
 
-  /** Re-run the failover rule now (also runs every 250 ms while open). */
+  /** Re-run the failover rule now (also runs every 250 ms while open); emits 'status' when any link's open/alive/active state changes. */
   evaluate(): void {
     const now = this.now();
     const { index, reason } = chooseActiveLink(this.health, this.active, now, this.timing);
-    if (reason === null || index === this.active) return;
-    const change: LinkChange = { from: this.links[this.active]!.name, to: this.links[index]!.name, reason };
-    this.active = index;
-    this.emit('linkchange', change);
+    if (reason !== null && index !== this.active) {
+      const change: LinkChange = { from: this.links[this.active]!.name, to: this.links[index]!.name, reason };
+      this.active = index;
+      this.emit('linkchange', change);
+    }
+    const status = this.status();
+    const sig = status.map((l) => `${+l.open}${+l.alive}${+l.active}`).join(',');
+    if (sig !== this.lastStatusSig) {
+      this.lastStatusSig = sig;
+      this.emit('status', status);
+    }
+  }
+
+  private scheduleReopen(i: number): void {
+    const timer = setTimeout(() => {
+      this.reopenTimers.delete(timer);
+      if (!this.opened || this.links[i]!.transport.isOpen) return;
+      this.links[i]!.transport.open().catch(() => this.scheduleReopen(i));
+    }, this.timing.reopenMs ?? 3000);
+    this.reopenTimers.add(timer);
   }
 
   private onLinkData(i: number, data: Uint8Array): void {

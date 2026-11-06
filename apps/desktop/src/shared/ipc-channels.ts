@@ -1391,6 +1391,8 @@ export interface ConnectionState {
   boardUid?: string;
   /** Connection type for transport-aware logic (signing, reconnect, etc.) */
   connectionType?: ConnectOptions['type'];
+  /** Maame multi-link connections only: per-link health, best link first. */
+  maameLinks?: Array<{ name: string; open: boolean; alive: boolean; active: boolean; lastRxAgoMs: number | null }>;
   // MAVLink signing
   signingEnabled?: boolean;
   /** True when we detect the FC is sending signed packets back */

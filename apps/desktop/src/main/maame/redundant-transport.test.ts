@@ -1,5 +1,5 @@
 import { EventEmitter } from 'events';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Transport } from '@ardudeck/comms';
 import { RedundantTransport, chooseActiveLink, isHeartbeatFrame, type LinkHealth } from './redundant-transport';
 
@@ -114,6 +114,39 @@ describe('RedundantTransport', () => {
     }
     expect(rt.activeLinkName).toBe('Wi-Fi');
     expect(changes).toEqual(['SiK:active-stale', 'Wi-Fi:preferred-recovered']);
+  });
+
+  it('emits status only when a link changes state', async () => {
+    const wifi = new FakeLink(), sik = new FakeLink();
+    const { rt, tick } = make([wifi, sik]);
+    const seen: string[] = [];
+    rt.on('status', (s: Array<{ name: string; alive: boolean; active: boolean }>) =>
+      seen.push(s.map((l) => `${l.name}${l.alive ? '+' : '-'}${l.active ? '*' : ''}`).join(' ')));
+    await rt.open();
+    wifi.rx(1);
+    tick(100);
+    tick(100); // no change, no event
+    tick(3500); // Wi-Fi silent
+    expect(seen).toEqual(['Wi-Fi+* SiK-', 'Wi-Fi-* SiK-']);
+  });
+
+  it('keeps the session open and reopens a link that closes', async () => {
+    vi.useFakeTimers();
+    try {
+      const wifi = new FakeLink(), sik = new FakeLink();
+      const { rt } = make([wifi, sik]);
+      let closed = false;
+      rt.on('close', () => { closed = true; });
+      await rt.open();
+      await wifi.close();
+      await sik.close(); // every link gone at once
+      expect(closed).toBe(false);
+      await vi.advanceTimersByTimeAsync(3100);
+      expect(wifi.isOpen && sik.isOpen).toBe(true);
+      expect(closed).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('opens when one link is missing, and fails only when every link fails', async () => {

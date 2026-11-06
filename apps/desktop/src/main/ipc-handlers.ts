@@ -6645,6 +6645,12 @@ export function setupIpcHandlers(mainWindow: BrowserWindow): void {
           maame.on('linkerror', (e: { name: string; error: unknown }) => {
             sendLog(mainWindow, 'warn', `Maame ${e.name} link error`, e.error instanceof Error ? e.error.message : String(e.error));
           });
+          // header link badge (renderer/maame/MaameLinkBadge.tsx)
+          maame.on('status', (links: NonNullable<ConnectionState['maameLinks']>) => {
+            if (currentTransport !== maame) return;
+            connectionState.maameLinks = links;
+            sendConnectionState(mainWindow);
+          });
           currentTransport = maame;
           transportName = `Maame ${maame.portName}`;
           break;
