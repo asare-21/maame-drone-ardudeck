@@ -843,6 +843,8 @@ export const IPC_CHANNELS = {
   // Layer 1 (MAVLink heartbeat)
   COMPANION_HEARTBEAT: 'companion:heartbeat',
   COMPANION_STATUSTEXT: 'companion:statustext',
+  /** Maame: ask the Pi companion (comp 191) to go ACTIVE (opens the FC arming gate) or STANDBY. */
+  MAAME_COMPANION_SET_READY: 'maame:companion-set-ready',
 
   // Layer 2 (Agent — real-time streams via WebSocket)
   COMPANION_METRICS: 'companion:metrics',

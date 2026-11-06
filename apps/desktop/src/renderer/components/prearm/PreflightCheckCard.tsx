@@ -13,6 +13,7 @@ import {
 import { PreArmParamFix } from './PreArmParamFix';
 import { SafetyConfigCard } from './SafetyConfigCard';
 import { MaameSafetyCard } from '../../maame/MaameSafetyCard';
+import { MaameFlightCard } from '../../maame/MaameFlightCard';
 import { PanelContainer } from '../panels/panel-utils';
 
 export function PreflightCheckCard() {
@@ -109,8 +110,9 @@ export function PreflightCheckCard() {
         {/* Settings that will never appear as a pre-arm failure because the FC
             is happy with them, and that decide whether a bad flight ends in a
             landing. Renders nothing when the aircraft is set up sensibly. */}
-        <div className="px-3 pt-2">
+        <div className="px-3 pt-2 space-y-2">
           <MaameSafetyCard />
+          <MaameFlightCard />
         </div>
         <div className="px-3 pt-2 empty:hidden">
           <SafetyConfigCard />

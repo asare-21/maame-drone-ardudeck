@@ -6,6 +6,7 @@
 import type { ConnectionMemory, SavedConnection } from '../stores/settings-store';
 import { useSettingsStore } from '../stores/settings-store';
 import type { ConnectOptions } from '../../shared/ipc-channels';
+import { startCompanionWatch } from './companion-store';
 
 export const MAAME = {
   fcSysid: 1,
@@ -77,6 +78,7 @@ export function maameConnectionSeed(mem: ConnectionMemory): Partial<ConnectionMe
 
 /** Apply the seed once settings have loaded from disk (seeding earlier would be overwritten). */
 export function installMaameProfile(): void {
+  startCompanionWatch();
   const apply = () => {
     const { connectionMemory } = useSettingsStore.getState();
     const updates = maameConnectionSeed(connectionMemory);

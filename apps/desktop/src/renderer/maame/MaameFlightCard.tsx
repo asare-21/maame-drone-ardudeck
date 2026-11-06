@@ -1,0 +1,125 @@
+/**
+ * Maame autonomous launch, in the Pre-flight panel: ready-to-fly checklist, then
+ * three confirmed steps: upload mission -> Pi ready (opens the FC arming gate) ->
+ * AUTO + arm (AUTO_OPTIONS lets ArduPilot arm and take off by itself).
+ */
+import { useEffect, useState } from 'react';
+import { useConnectionStore } from '../stores/connection-store';
+import { useMessagesStore } from '../stores/messages-store';
+import { useMissionStore } from '../stores/mission-store';
+import { useTelemetryStore } from '../stores/telemetry-store';
+import { useMaameCompanion } from './companion-store';
+import { useMaameBaselineResults } from './MaameSafetyCard';
+import { MAV_STATE_ACTIVE, readyChecks } from './ready-checks';
+
+export const COPTER_MODE = { AUTO: 3, RTL: 6, LAND: 9, BRAKE: 17 } as const;
+
+export function MaameFlightCard() {
+  const [nowMs, setNowMs] = useState(Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNowMs(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, []);
+
+  const connected = useConnectionStore((s) => s.connectionState.isConnected);
+  const gps = useTelemetryStore((s) => s.gps);
+  const battery = useTelemetryStore((s) => s.battery);
+  const armed = useTelemetryStore((s) => s.flight.armed);
+  const messages = useMessagesStore((s) => s.messages);
+  const missionItems = useMissionStore((s) => s.missionItems);
+  const uploadedAt = useMissionStore((s) => s.lastUploadedAt);
+  const uploadedCount = useMissionStore((s) => s.lastUploadedItemCount);
+  const uploadMission = useMissionStore((s) => s.uploadMission);
+  const pi = useMaameCompanion();
+  const baseline = useMaameBaselineResults();
+  const [busy, setBusy] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const checks = readyChecks({
+    nowMs,
+    connected,
+    baselineFailures: baseline.filter((r) => !r.ok).length,
+    gpsFixType: gps?.fixType ?? 0,
+    gpsSats: gps?.satellites ?? 0,
+    batteryVoltage: battery?.voltage ?? 0,
+    piLastSeenMs: pi.lastSeenMs,
+    piStatus: pi.status,
+    messages,
+    missionItems: missionItems.length,
+    uploadedItems: uploadedAt === null ? null : uploadedCount,
+  });
+  const ok = (id: string) => checks.find((c) => c.id === id)!.ok;
+  const allOk = checks.every((c) => c.ok);
+  const piActive = pi.status === MAV_STATE_ACTIVE && ok('pi');
+
+  const run = async (label: string, fn: () => Promise<boolean>) => {
+    setBusy(label);
+    setError(null);
+    try {
+      if (!(await fn())) setError(`${label} failed`);
+    } catch (e) {
+      setError(`${label} failed: ${e instanceof Error ? e.message : String(e)}`);
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const launch = () =>
+    run('Launch', async () => {
+      const go = window.confirm(
+        'Start the mission?\n\nThe drone will arm, take off and fly the mission on its own (no RC).\n' +
+          'Props on, area clear, people back. Emergency controls appear in the header once armed.',
+      );
+      if (!go) return true;
+      if (!(await window.electronAPI.mavlinkSetMode(COPTER_MODE.AUTO))) return false;
+      return window.electronAPI.mavlinkArmDisarm(true, false);
+    });
+
+  return (
+    <div className={`rounded-lg border p-3 text-sm ${allOk ? 'border-green-500/50' : 'border-gray-700/50'}`}>
+      <div className="flex items-center justify-between">
+        <span className="font-medium">Maame autonomous launch</span>
+        <span className={allOk ? 'text-green-400' : 'text-gray-400'}>
+          {checks.filter((c) => c.ok).length}/{checks.length} ready
+        </span>
+      </div>
+      <ul className="mt-2 space-y-0.5 text-xs">
+        {checks.map((c) => (
+          <li key={c.id} className="flex gap-2">
+            <span className={c.ok ? 'text-green-400' : 'text-red-400'} aria-hidden>
+              {c.ok ? '✓' : '✗'}
+            </span>
+            <span className="w-28 shrink-0">{c.label}</span>
+            <span className="text-gray-400">{c.detail}</span>
+          </li>
+        ))}
+      </ul>
+      {pi.lastText && <p className="mt-1 text-xs text-gray-400">Pi: {pi.lastText}</p>}
+      {error && <p className="mt-1 text-xs text-red-400">{error}</p>}
+
+      <div className="mt-2 grid gap-2">
+        <button
+          className="btn btn-secondary w-full"
+          disabled={!connected || armed || busy !== null || missionItems.length === 0}
+          onClick={() => void run('Upload mission', uploadMission)}
+        >
+          1. {ok('mission') ? 'Mission uploaded (upload again)' : 'Upload mission'}
+        </button>
+        <button
+          className="btn btn-secondary w-full"
+          disabled={!ok('pi') || armed || busy !== null}
+          onClick={() => void run(piActive ? 'Pi standby' : 'Pi ready', () => window.electronAPI.maameCompanionSetReady(!piActive))}
+        >
+          2. {piActive ? 'Pi ready ✓ (set standby)' : 'Pi ready'}
+        </button>
+        <button
+          className="btn btn-primary w-full"
+          disabled={!allOk || !piActive || armed || busy !== null}
+          onClick={() => void launch()}
+        >
+          3. {armed ? 'Armed, flying' : 'Arm and start mission'}
+        </button>
+      </div>
+    </div>
+  );
+}

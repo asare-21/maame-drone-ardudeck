@@ -16,6 +16,7 @@ import { DedicationMoment } from '../tribute/DedicationMoment';
 import { ArmDisarmButton } from './ArmDisarmButton';
 import { ScriptHealthBadge } from '../script-installer/ScriptHealthBadge';
 import { MaameLinkBadge } from '../../maame/MaameLinkBadge';
+import { MaameEmergencyBar } from '../../maame/MaameEmergencyBar';
 import { QuickLaunchMenu } from './QuickLaunchMenu';
 import { betaLabel } from '../../utils/version-label';
 import iconImage from '../../assets/icon.png';
@@ -115,6 +116,7 @@ export function AppShell({ children }: AppShellProps) {
 
           {/* Maame Wi-Fi / SiK link health (only on a Maame multi-link connection) */}
           <MaameLinkBadge />
+          <MaameEmergencyBar />
 
           {/* ARM / DISARM button */}
           <ArmDisarmButton />

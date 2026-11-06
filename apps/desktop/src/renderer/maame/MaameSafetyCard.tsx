@@ -8,18 +8,11 @@ import { useSettingsStore } from '../stores/settings-store';
 import { useTelemetryStore } from '../stores/telemetry-store';
 import { checkBaseline, maameBaseline } from './safety-baseline';
 
-export function MaameSafetyCard() {
+/** Baseline results against what the FC holds; shared with the flight card's checklist. */
+export function useMaameBaselineResults() {
   const parameters = useParameterStore((s) => s.parameters);
-  const downloadState = useParameterStore((s) => s.downloadState);
-  const fetchParameters = useParameterStore((s) => s.fetchParameters);
-  const setParameterImmediate = useParameterStore((s) => s.setParameterImmediate);
   const gcsSysid = useSettingsStore((s) => s.gcsSysid);
-  const armed = useTelemetryStore((s) => s.flight.armed);
-  const [applying, setApplying] = useState(false);
-  const [writeErrors, setWriteErrors] = useState<string[]>([]);
-  const [needsReboot, setNeedsReboot] = useState(false);
-
-  const results = useMemo(
+  return useMemo(
     () =>
       checkBaseline(maameBaseline(gcsSysid), (id) => {
         const p = parameters.get(id);
@@ -28,6 +21,18 @@ export function MaameSafetyCard() {
       }),
     [parameters, gcsSysid],
   );
+}
+
+export function MaameSafetyCard() {
+  const downloadState = useParameterStore((s) => s.downloadState);
+  const fetchParameters = useParameterStore((s) => s.fetchParameters);
+  const setParameterImmediate = useParameterStore((s) => s.setParameterImmediate);
+  const armed = useTelemetryStore((s) => s.flight.armed);
+  const [applying, setApplying] = useState(false);
+  const [writeErrors, setWriteErrors] = useState<string[]>([]);
+  const [needsReboot, setNeedsReboot] = useState(false);
+
+  const results = useMaameBaselineResults();
   const failing = results.filter((r) => !r.ok);
   const fixable = failing.filter((r) => r.fix !== null);
 

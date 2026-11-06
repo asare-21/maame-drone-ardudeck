@@ -3283,6 +3283,7 @@ function parseTelemetry(mainWindow: BrowserWindow, packet: MAVLinkPacket): void 
           online: true,
           lastSeen: Date.now(),
           systemType: `type-${vehicleType}`,
+          systemStatus: payload[7], // MAV_STATE: Maame Pi is ACTIVE (4) once ready
         });
       }
 
@@ -9236,6 +9237,28 @@ export function setupIpcHandlers(mainWindow: BrowserWindow): void {
       sendLog(mainWindow, 'error', 'Failed to send LAND command', message);
       return false;
     }
+  });
+
+  // Maame: Pi companion ready/standby. MAV_CMD_USER_2 to comp 191 (companion/startup-files/maame_ready.py);
+  // the Pi answers with its heartbeat status and a STATUSTEXT.
+  ipcMain.handle(IPC_CHANNELS.MAAME_COMPANION_SET_READY, async (_, ready: boolean): Promise<boolean> => {
+    const target = activeFlightTarget();
+    if (!target) {
+      sendLog(mainWindow, 'warn', 'Maame Pi ready request skipped: no active vehicle');
+      return false;
+    }
+    const payload = serializeCommandLong({
+      targetSystem: target.sysid,
+      targetComponent: 191,
+      command: 31011,
+      confirmation: 0,
+      param1: ready ? 1 : 0,
+      param2: 0, param3: 0, param4: 0, param5: 0, param6: 0, param7: 0,
+    });
+    const packet = await sendMavlinkPacket(COMMAND_LONG_ID, payload, COMMAND_LONG_CRC_EXTRA, { link: target.transport });
+    await target.transport.write(packet);
+    connectionState.packetsSent++;
+    return true;
   });
 
   // MAV_CMD_USER_1..5 via COMMAND_INT - dispatches to FC-side Lua script handlers.

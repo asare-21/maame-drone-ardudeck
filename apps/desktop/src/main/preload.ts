@@ -2842,8 +2842,8 @@ const api = {
     return () => ipcRenderer.removeListener(IPC_CHANNELS.COMPANION_DISCOVER_RESULT, handler);
   },
 
-  onCompanionHeartbeat: (callback: (data: { online: boolean; lastSeen: number; systemType: string }) => void) => {
-    const handler = (_: unknown, data: { online: boolean; lastSeen: number; systemType: string }) => callback(data);
+  onCompanionHeartbeat: (callback: (data: { online: boolean; lastSeen: number; systemType: string; systemStatus?: number }) => void) => {
+    const handler = (_: unknown, data: { online: boolean; lastSeen: number; systemType: string; systemStatus?: number }) => callback(data);
     ipcRenderer.on(IPC_CHANNELS.COMPANION_HEARTBEAT, handler);
     return () => ipcRenderer.removeListener(IPC_CHANNELS.COMPANION_HEARTBEAT, handler);
   },
@@ -2853,6 +2853,10 @@ const api = {
     ipcRenderer.on(IPC_CHANNELS.COMPANION_STATUSTEXT, handler);
     return () => ipcRenderer.removeListener(IPC_CHANNELS.COMPANION_STATUSTEXT, handler);
   },
+
+  /** Maame: Pi companion ACTIVE (opens the FC arming gate) or STANDBY. */
+  maameCompanionSetReady: (ready: boolean): Promise<boolean> =>
+    ipcRenderer.invoke(IPC_CHANNELS.MAAME_COMPANION_SET_READY, ready),
 
   // Detachable Windows (pop-out)
   openDetachedWindow: (req: OpenDetachedRequest): Promise<string> =>
