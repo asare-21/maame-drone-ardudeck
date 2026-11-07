@@ -16,6 +16,7 @@ import { MaameSafetyCard } from '../../maame/MaameSafetyCard';
 import { MaameCompanionCard } from '../../maame/MaameCompanionCard';
 import { MaameFlightCard } from '../../maame/MaameFlightCard';
 import { MaameHoverTestCard } from '../../maame/MaameHoverTestCard';
+import { MaameCoordinateMissionCard } from '../../maame/MaameCoordinateMissionCard';
 import { PanelContainer } from '../panels/panel-utils';
 
 export function PreflightCheckCard() {
@@ -117,6 +118,7 @@ export function PreflightCheckCard() {
           <MaameCompanionCard />
           <MaameFlightCard />
           <MaameHoverTestCard />
+          <MaameCoordinateMissionCard />
         </div>
         <div className="px-3 pt-2 empty:hidden">
           <SafetyConfigCard />
