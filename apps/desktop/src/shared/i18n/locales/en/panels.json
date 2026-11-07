@@ -331,6 +331,7 @@
     "messages": "Messages",
     "position": "Position",
     "preflightCheck": "Pre-flight Checks",
+    "maameCockpit": "Maame Cockpit",
     "rtk": "RTK / NTRIP",
     "safetyMonitor": "Safety Monitor",
     "sitlEnvironment": "SITL Environment",

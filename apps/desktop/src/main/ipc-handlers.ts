@@ -67,6 +67,9 @@ import {
   serializeParamSet,
   serializeCommandLong,
   serializeCommandAck,
+  serializeSetPositionTargetLocalNed,
+  SET_POSITION_TARGET_LOCAL_NED_ID,
+  SET_POSITION_TARGET_LOCAL_NED_CRC_EXTRA,
   serializeMissionRequestList,
   serializeMissionRequest,
   serializeMissionRequestInt,
@@ -195,6 +198,10 @@ import sonarLuaSource from './lua-scripts/ardudeck_sonar.lua?raw';
 import maameGateLuaSource from './lua-scripts/maame_pi_gate.lua?raw';
 import { MAAME_GATE_FILENAME, MAAME_GATE_PARAM } from '../shared/maame-gate.js';
 import { maameTlog } from './maame/tlog.js';
+import { cockpitRefusal, positionTarget, turnCommand, type CockpitMove } from './maame/cockpit.js';
+
+/** FC flight mode from its latest heartbeat (Maame cockpit only moves the drone in GUIDED). */
+let maameFcMode: number | null = null;
 
 /** Per-connection Maame telemetry logs. */
 function maameFlightLogDir(): string {
@@ -3301,6 +3308,7 @@ function parseTelemetry(mainWindow: BrowserWindow, packet: MAVLinkPacket): void 
       if (connectionState.componentId != null && packet.compid !== connectionState.componentId) break;
 
       currentVehicleType = vehicleType;
+      maameFcMode = customMode;
       const systemStatus = payload[7]!; // MAV_STATE
       const armedFlag = (baseMode & 0x80) !== 0; // MAV_MODE_FLAG_SAFETY_ARMED
       // Reject the armed flag only during the truly transient boot states
@@ -12018,6 +12026,38 @@ export function setupIpcHandlers(mainWindow: BrowserWindow): void {
       (progress) => { if (!event.sender.isDestroyed()) event.sender.send(IPC_CHANNELS.RADIO_HUD_SONAR_PROGRESS, progress); },
       safe,
     );
+  });
+
+  // Maame cockpit: manual flying from the app (GUIDED targets relative to the heading).
+  ipcMain.handle(IPC_CHANNELS.MAAME_COCKPIT_MOVE, async (_, move: CockpitMove): Promise<{ ok: boolean; error?: string }> => {
+    const target = activeFlightTarget();
+    const refusal = cockpitRefusal({
+      maameLink: currentTransport instanceof RedundantTransport && !!target,
+      armed: lastReportedArmed,
+      customMode: maameFcMode,
+    });
+    if (refusal || !target) return { ok: false, error: refusal ?? 'no vehicle' };
+    try {
+      let packet: Uint8Array;
+      if (move.kind === 'turn') {
+        const { command, params } = turnCommand(move.degrees);
+        packet = await sendMavlinkPacket(COMMAND_LONG_ID, serializeCommandLong({
+          targetSystem: target.sysid, targetComponent: 1, command, confirmation: 0,
+          param1: params[0], param2: params[1], param3: params[2], param4: params[3], param5: 0, param6: 0, param7: 0,
+        }), COMMAND_LONG_CRC_EXTRA, { link: target.transport });
+      } else {
+        const f = positionTarget(move);
+        packet = await sendMavlinkPacket(SET_POSITION_TARGET_LOCAL_NED_ID, serializeSetPositionTargetLocalNed({
+          timeBootMs: 0, targetSystem: target.sysid, targetComponent: 1, ...f,
+          afx: 0, afy: 0, afz: 0, yaw: 0,
+        }), SET_POSITION_TARGET_LOCAL_NED_CRC_EXTRA, { link: target.transport });
+      }
+      await target.transport.write(packet);
+      connectionState.packetsSent++;
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, error: err instanceof Error ? err.message : String(err) };
+    }
   });
 
   ipcMain.handle(IPC_CHANNELS.MAAME_OPEN_FLIGHT_LOGS, async () => {

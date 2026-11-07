@@ -3,7 +3,7 @@
  * 5-10 s and land in place - the first real flight of a no-RC drone. Same gates
  * as the launch card (ready checks, Pi ready); it replaces the mission on the FC.
  */
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useMessagesStore } from '../stores/messages-store';
 import { useMissionStore } from '../stores/mission-store';
 import { useTelemetryStore } from '../stores/telemetry-store';
@@ -12,6 +12,7 @@ import { useMaameBaselineResults } from './MaameSafetyCard';
 import { startUploadedMission, useFcParam } from './MaameFlightCard';
 import { HOVER_HEIGHTS_M, HOVER_HOLD_S, hoverTestMission, hoverTestProblem } from './hover-test';
 import { MAV_STATE_ACTIVE, readyChecks } from './ready-checks';
+import { peakVibe, vibrationVerdict, type Vibe } from './vibration';
 import { useMaameLinkProblem, useMaameLinkUp } from './maame-profile';
 
 const LAND_SPEED_MS = 0.5; // ArduCopter LAND_SPEED default (50 cm/s)
@@ -36,6 +37,18 @@ export function MaameHoverTestCard() {
   const pi = useMaameCompanion();
   const baseline = useMaameBaselineResults();
   const fcParam = useFcParam();
+  // Vibration over the flight: clipping counted from take-off, per-axis peak kept for after landing.
+  const vib = useTelemetryStore((s) => s.vibration) as Vibe | null | undefined;
+  const [peak, setPeak] = useState<Vibe | null>(null);
+  const takeoffVib = useRef<Vibe | null>(null);
+  const wasArmed = useRef(false);
+  useEffect(() => {
+    if (armed && !wasArmed.current) { takeoffVib.current = vib ?? null; setPeak(null); }
+    wasArmed.current = armed;
+    if (armed && vib) setPeak((p) => peakVibe(p, vib));
+  }, [armed, vib]);
+  const vibVerdict = peak ? vibrationVerdict(peak, takeoffVib.current) : null;
+  const vibTone = { good: 'text-green-400', marginal: 'text-amber-400', bad: 'text-red-400' };
 
   // The test brings its own mission, so the planned-mission checks do not apply.
   const checks = readyChecks({
@@ -125,6 +138,21 @@ export function MaameHoverTestCard() {
         </p>
       )}
       {error && <p className="mt-1 text-xs text-red-400">{error}</p>}
+      {!armed && fcParam('INS_LOG_BAT_MASK') === 0 && (
+        <p className="mt-1 text-xs text-gray-400">
+          To tune from this hover, turn on vibration logging first: Setup &gt; Quick Setup &gt; Motor vibration filter (step 1).
+        </p>
+      )}
+      {vibVerdict && (
+        <div className="mt-2 text-xs">
+          <span className="text-gray-400">Vibration {armed ? 'now' : 'this flight'}: </span>
+          <span className={vibTone[vibVerdict.level]}>
+            {armed && vib ? `${Math.max(vib.x, vib.y, vib.z).toFixed(0)} m/s², ` : ''}peak {vibVerdict.worst.toFixed(0)} m/s² ({vibVerdict.axis.toUpperCase()}) · {vibVerdict.level}
+            {vibVerdict.newClips > 0 ? ` · ${vibVerdict.newClips} clipping` : ''}
+          </span>
+          {!armed && <p className={`mt-0.5 ${vibTone[vibVerdict.level]}`}>{vibVerdict.advice}</p>}
+        </div>
+      )}
 
       <button className="btn btn-primary mt-2 w-full" disabled={!canFly} onClick={() => void fly()}>
         {armed ? 'Flying (use the header controls)' : busy ? 'Starting…' : `Hover test: ${heightM} m for ${holdS} s`}

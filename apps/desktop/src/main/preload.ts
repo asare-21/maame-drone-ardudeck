@@ -2871,6 +2871,14 @@ const api = {
     return () => { ipcRenderer.removeListener(IPC_CHANNELS.MAAME_GATE_PROGRESS, handler); };
   },
 
+  /** Maame cockpit: send one GUIDED move; refused unless Maame link, armed and in GUIDED. */
+  maameCockpitMove: (
+    move:
+      | { kind: 'velocity'; forward: number; right: number; up: number; yawRateDeg: number }
+      | { kind: 'offset'; forward: number; right: number; up: number }
+      | { kind: 'turn'; degrees: number },
+  ): Promise<{ ok: boolean; error?: string }> => ipcRenderer.invoke(IPC_CHANNELS.MAAME_COCKPIT_MOVE, move),
+
   /** Maame: open Documents/MaameDrone/flight-logs (one .tlog per Maame connection). */
   maameOpenFlightLogs: (): Promise<string> => ipcRenderer.invoke(IPC_CHANNELS.MAAME_OPEN_FLIGHT_LOGS),
 

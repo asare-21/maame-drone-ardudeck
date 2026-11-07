@@ -852,6 +852,8 @@ export const IPC_CHANNELS = {
   MAAME_GATE_PROGRESS: 'maame:gate-progress',
   /** Maame: open the folder of per-connection telemetry logs (.tlog). */
   MAAME_OPEN_FLIGHT_LOGS: 'maame:open-flight-logs',
+  /** Maame cockpit: one GUIDED move (velocity / offset / turn) relative to the heading. */
+  MAAME_COCKPIT_MOVE: 'maame:cockpit-move',
 
   // Layer 2 (Agent — real-time streams via WebSocket)
   COMPANION_METRICS: 'companion:metrics',
