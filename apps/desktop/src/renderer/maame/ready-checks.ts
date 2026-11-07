@@ -15,6 +15,16 @@ export const PREARM_WINDOW_MS = 35_000;
 /** Pi heartbeat older than this counts as offline. */
 export const PI_TIMEOUT_MS = 3000;
 export const MAV_STATE_ACTIVE = 4;
+/** The Pi throttles itself at 80 C; a hot or browning-out Pi can drop the gate heartbeat in flight. */
+export const PI_MAX_TEMP_C = 80;
+const THROTTLE_UNDERVOLTAGE_NOW = 0x1;
+
+/** Why the Pi is unfit to fly right now, or null (also null when it reports nothing). */
+export function piHealthProblem(tempC: number | null, throttled: number | null): string | null {
+  if (throttled !== null && throttled >= 0 && throttled & THROTTLE_UNDERVOLTAGE_NOW) return 'Pi under-voltage now (check its 5 V supply)';
+  if (tempC !== null && tempC >= PI_MAX_TEMP_C) return `Pi too hot (${tempC.toFixed(0)} C)`;
+  return null;
+}
 
 export interface ReadyInput {
   nowMs: number;
@@ -27,6 +37,9 @@ export interface ReadyInput {
   armVoltage: number | null;
   piLastSeenMs: number | null;
   piStatus: number | null;
+  /** Pi health from maame_status.py, null when not reported recently. */
+  piTempC: number | null;
+  piThrottled: number | null;
   /** FC STATUSTEXTs with their timestamps. */
   messages: Array<{ text: string; timestamp: number }>;
   missionItems: number;
@@ -56,6 +69,7 @@ export function readyChecks(i: ReadyInput): ReadyCheck[] {
   const needV = Math.max(i.armVoltage ?? 0, MIN_LAUNCH_CELL_V * MAAME_CELLS);
   const mc = i.missionCheck;
   const piOnline = i.piLastSeenMs !== null && i.nowMs - i.piLastSeenMs < PI_TIMEOUT_MS;
+  const piProblem = piOnline ? piHealthProblem(i.piTempC, i.piThrottled) : null;
   const prearm = blockingPrearm(i.messages, i.nowMs);
   return [
     { id: 'link', label: 'Link to drone', ok: i.connected, detail: i.connected ? 'connected' : 'not connected' },
@@ -80,8 +94,8 @@ export function readyChecks(i: ReadyInput): ReadyCheck[] {
     {
       id: 'pi',
       label: 'Pi companion',
-      ok: piOnline,
-      detail: !piOnline ? 'no heartbeat' : i.piStatus === MAV_STATE_ACTIVE ? 'ACTIVE (gate open)' : 'online, standby',
+      ok: piOnline && !piProblem,
+      detail: !piOnline ? 'no heartbeat' : piProblem ?? (i.piStatus === MAV_STATE_ACTIVE ? 'ACTIVE (gate open)' : 'online, standby'),
     },
     { id: 'prearm', label: 'FC pre-arm', ok: prearm.length === 0, detail: prearm.length ? prearm.join('; ') : 'no failures' },
     {

@@ -3788,6 +3788,8 @@ function parseTelemetry(mainWindow: BrowserWindow, packet: MAVLinkPacket): void 
           sendLog(mainWindow, 'info', `NAMED_VALUE_FLOAT received: name="${name}" value=${value}`);
         }
         ingestNamedValueFloat(name, value);
+        // Maame Pi health (PI_TEMP, PI_THROT, ...) for the companion card
+        if (packet.compid === 191) safeSend(mainWindow, IPC_CHANNELS.MAAME_COMPANION_VALUE, { name, value });
       } catch (err) {
         sendLog(mainWindow, 'warn', `NAMED_VALUE_FLOAT parse failed: ${err instanceof Error ? err.message : err}`);
       }

@@ -11,7 +11,7 @@ import { useParameterStore } from '../stores/parameter-store';
 import { fenceWarningForPoint } from '../utils/fence-check';
 import { checkMission } from './mission-check';
 import { useTelemetryStore } from '../stores/telemetry-store';
-import { useMaameCompanion } from './companion-store';
+import { freshPiHealth, useMaameCompanion } from './companion-store';
 import { useMaameBaselineResults } from './MaameSafetyCard';
 import { MAV_STATE_ACTIVE, readyChecks } from './ready-checks';
 
@@ -78,7 +78,7 @@ export function MaameFlightCard() {
     batteryVoltage: battery?.voltage ?? 0,
     armVoltage: fcParam('BATT_ARM_VOLT'),
     piLastSeenMs: pi.lastSeenMs,
-    piStatus: pi.status,
+    piStatus: pi.status, ...freshPiHealth(pi, nowMs),
     messages,
     missionItems: missionItems.length,
     uploadedItems: uploadedAt === null ? null : uploadedCount,

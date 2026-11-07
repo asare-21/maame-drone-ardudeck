@@ -2854,6 +2854,13 @@ const api = {
     return () => ipcRenderer.removeListener(IPC_CHANNELS.COMPANION_STATUSTEXT, handler);
   },
 
+  /** Maame: Pi health values (PI_TEMP, PI_LOAD, PI_WIFI, PI_THROT, PI_ROUTER). */
+  onMaameCompanionValue: (callback: (data: { name: string; value: number }) => void) => {
+    const handler = (_: unknown, data: { name: string; value: number }) => callback(data);
+    ipcRenderer.on(IPC_CHANNELS.MAAME_COMPANION_VALUE, handler);
+    return () => ipcRenderer.removeListener(IPC_CHANNELS.MAAME_COMPANION_VALUE, handler);
+  },
+
   /** Maame: Pi companion ACTIVE (opens the FC arming gate) or STANDBY. */
   maameCompanionSetReady: (ready: boolean): Promise<boolean> =>
     ipcRenderer.invoke(IPC_CHANNELS.MAAME_COMPANION_SET_READY, ready),

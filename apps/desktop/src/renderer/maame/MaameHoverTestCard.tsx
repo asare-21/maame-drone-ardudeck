@@ -8,7 +8,7 @@ import { useConnectionStore } from '../stores/connection-store';
 import { useMessagesStore } from '../stores/messages-store';
 import { useMissionStore } from '../stores/mission-store';
 import { useTelemetryStore } from '../stores/telemetry-store';
-import { useMaameCompanion } from './companion-store';
+import { freshPiHealth, useMaameCompanion } from './companion-store';
 import { useMaameBaselineResults } from './MaameSafetyCard';
 import { startUploadedMission, useFcParam } from './MaameFlightCard';
 import { HOVER_HEIGHTS_M, HOVER_HOLD_S, hoverTestMission, hoverTestProblem } from './hover-test';
@@ -42,7 +42,7 @@ export function MaameHoverTestCard() {
     baselineFailures: baseline.filter((r) => !r.ok).length,
     gpsFixType: gps?.fixType ?? 0, gpsSats: gps?.satellites ?? 0,
     batteryVoltage: battery?.voltage ?? 0, armVoltage: fcParam('BATT_ARM_VOLT'),
-    piLastSeenMs: pi.lastSeenMs, piStatus: pi.status,
+    piLastSeenMs: pi.lastSeenMs, piStatus: pi.status, ...freshPiHealth(pi, nowMs),
     messages, missionItems: 1, uploadedItems: 1, missionCheck: null,
   }).filter((c) => c.id !== 'mission' && c.id !== 'missionSafe');
   const failing = checks.filter((c) => !c.ok);

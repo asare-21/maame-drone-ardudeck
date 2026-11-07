@@ -845,6 +845,8 @@ export const IPC_CHANNELS = {
   COMPANION_STATUSTEXT: 'companion:statustext',
   /** Maame: ask the Pi companion (comp 191) to go ACTIVE (opens the FC arming gate) or STANDBY. */
   MAAME_COMPANION_SET_READY: 'maame:companion-set-ready',
+  /** Maame: Pi health value (NAMED_VALUE_FLOAT from comp 191, e.g. PI_TEMP), see companion/startup-files/maame_status.py. */
+  MAAME_COMPANION_VALUE: 'maame:companion-value',
 
   // Layer 2 (Agent — real-time streams via WebSocket)
   COMPANION_METRICS: 'companion:metrics',

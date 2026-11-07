@@ -13,6 +13,7 @@ import {
 import { PreArmParamFix } from './PreArmParamFix';
 import { SafetyConfigCard } from './SafetyConfigCard';
 import { MaameSafetyCard } from '../../maame/MaameSafetyCard';
+import { MaameCompanionCard } from '../../maame/MaameCompanionCard';
 import { MaameFlightCard } from '../../maame/MaameFlightCard';
 import { MaameHoverTestCard } from '../../maame/MaameHoverTestCard';
 import { PanelContainer } from '../panels/panel-utils';
@@ -113,6 +114,7 @@ export function PreflightCheckCard() {
             landing. Renders nothing when the aircraft is set up sensibly. */}
         <div className="px-3 pt-2 space-y-2">
           <MaameSafetyCard />
+          <MaameCompanionCard />
           <MaameFlightCard />
           <MaameHoverTestCard />
         </div>

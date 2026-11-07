@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { blockingPrearm, readyChecks, type ReadyInput } from './ready-checks';
+import { blockingPrearm, piHealthProblem, readyChecks, type ReadyInput } from './ready-checks';
 
 const NOW = 100_000;
 const good: ReadyInput = {
   nowMs: NOW, connected: true, baselineFailures: 0, gpsFixType: 3, gpsSats: 12, batteryVoltage: 23.2,
   piLastSeenMs: NOW - 500, piStatus: 3, messages: [], missionItems: 5, uploadedItems: 5,
-  armVoltage: null, missionCheck: { ok: true, problems: [], minutes: 4, packUse: 0.2 },
+  piTempC: 55, piThrottled: 0, armVoltage: null, missionCheck: { ok: true, problems: [], minutes: 4, packUse: 0.2 },
 };
 const failing = (i: ReadyInput) => readyChecks(i).filter((c) => !c.ok).map((c) => c.id);
 
@@ -49,5 +49,14 @@ describe('readyChecks', () => {
     expect(failing({ ...good, missionCheck: bad })).toEqual(['missionSafe']);
     expect(readyChecks({ ...good, missionCheck: bad }).find((c) => c.id === 'missionSafe')!.detail).toMatch(/fence ceiling/);
     expect(failing({ ...good, missionItems: 0, uploadedItems: null, missionCheck: null })).toEqual(['mission', 'missionSafe']);
+  });
+
+  it('blocks a Pi that is browning out or too hot, but not one that only browned out earlier', () => {
+    expect(failing({ ...good, piThrottled: 0x50005 })).toEqual(['pi']);
+    expect(readyChecks({ ...good, piThrottled: 0x1 }).find((c) => c.id === 'pi')!.detail).toMatch(/under-voltage/);
+    expect(failing({ ...good, piTempC: 82 })).toEqual(['pi']);
+    expect(failing({ ...good, piThrottled: 0x50000 })).toEqual([]); // since boot only: the card warns
+    expect(piHealthProblem(null, null)).toBeNull();
+    expect(piHealthProblem(60, -1)).toBeNull();
   });
 });
