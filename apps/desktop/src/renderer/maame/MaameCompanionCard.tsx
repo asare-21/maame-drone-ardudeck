@@ -5,12 +5,12 @@
  */
 import { useEffect, useState } from 'react';
 import { MAAME_GATE_VERSION } from '../../shared/maame-gate';
-import { useConnectionStore } from '../stores/connection-store';
 import { useParameterStore } from '../stores/parameter-store';
 import { useTelemetryStore } from '../stores/telemetry-store';
 import { useFcParam } from './MaameFlightCard';
 import { freshPiHealth, useMaameCompanion } from './companion-store';
 import { MAV_STATE_ACTIVE, PI_MAX_TEMP_C, PI_TIMEOUT_MS } from './ready-checks';
+import { useMaameLinkUp } from './maame-profile';
 
 type Tone = 'ok' | 'warn' | 'bad' | 'off';
 const TONE: Record<Tone, string> = { ok: 'text-green-400', warn: 'text-amber-400', bad: 'text-red-400', off: 'text-gray-400' };
@@ -85,7 +85,7 @@ export function MaameCompanionCard() {
 
 /** The arming gate Lua on the FC: running version (PIG_VER) and install/update. */
 function GateRow() {
-  const connected = useConnectionStore((s) => s.connectionState.isConnected);
+  const connected = useMaameLinkUp();
   const armed = useTelemetryStore((s) => s.flight.armed);
   const running = useFcParam()('PIG_VER');
   const [phase, setPhase] = useState<string | null>(null);

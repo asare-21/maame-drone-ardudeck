@@ -4,7 +4,6 @@
  * AUTO + arm (AUTO_OPTIONS lets ArduPilot arm and take off by itself).
  */
 import { useEffect, useMemo, useState } from 'react';
-import { useConnectionStore } from '../stores/connection-store';
 import { useMessagesStore } from '../stores/messages-store';
 import { useMissionStore } from '../stores/mission-store';
 import { useParameterStore } from '../stores/parameter-store';
@@ -14,6 +13,7 @@ import { useTelemetryStore } from '../stores/telemetry-store';
 import { freshPiHealth, useMaameCompanion } from './companion-store';
 import { useMaameBaselineResults } from './MaameSafetyCard';
 import { MAV_STATE_ACTIVE, readyChecks } from './ready-checks';
+import { useMaameLinkUp } from './maame-profile';
 
 export const COPTER_MODE = { STABILIZE: 0, AUTO: 3, RTL: 6, LAND: 9, BRAKE: 17 } as const;
 
@@ -49,7 +49,7 @@ export function MaameFlightCard() {
     return () => clearInterval(t);
   }, []);
 
-  const connected = useConnectionStore((s) => s.connectionState.isConnected);
+  const connected = useMaameLinkUp();
   const gps = useTelemetryStore((s) => s.gps);
   const battery = useTelemetryStore((s) => s.battery);
   const armed = useTelemetryStore((s) => s.flight.armed);

@@ -72,7 +72,7 @@ export function readyChecks(i: ReadyInput): ReadyCheck[] {
   const piProblem = piOnline ? piHealthProblem(i.piTempC, i.piThrottled) : null;
   const prearm = blockingPrearm(i.messages, i.nowMs);
   return [
-    { id: 'link', label: 'Link to drone', ok: i.connected, detail: i.connected ? 'connected' : 'not connected' },
+    { id: 'link', label: 'Link to drone', ok: i.connected, detail: i.connected ? 'connected (Maame link)' : 'use "Connect to Maame" (a multi-vehicle/fleet link is not enough)' },
     {
       id: 'baseline',
       label: 'Safety baseline',

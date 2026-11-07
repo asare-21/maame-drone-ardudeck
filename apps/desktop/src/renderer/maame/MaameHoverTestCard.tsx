@@ -4,7 +4,6 @@
  * as the launch card (ready checks, Pi ready); it replaces the mission on the FC.
  */
 import { useEffect, useState } from 'react';
-import { useConnectionStore } from '../stores/connection-store';
 import { useMessagesStore } from '../stores/messages-store';
 import { useMissionStore } from '../stores/mission-store';
 import { useTelemetryStore } from '../stores/telemetry-store';
@@ -13,6 +12,7 @@ import { useMaameBaselineResults } from './MaameSafetyCard';
 import { startUploadedMission, useFcParam } from './MaameFlightCard';
 import { HOVER_HEIGHTS_M, HOVER_HOLD_S, hoverTestMission, hoverTestProblem } from './hover-test';
 import { MAV_STATE_ACTIVE, readyChecks } from './ready-checks';
+import { useMaameLinkUp } from './maame-profile';
 
 const LAND_SPEED_MS = 0.5; // ArduCopter LAND_SPEED default (50 cm/s)
 
@@ -27,7 +27,7 @@ export function MaameHoverTestCard() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const connected = useConnectionStore((s) => s.connectionState.isConnected);
+  const connected = useMaameLinkUp();
   const gps = useTelemetryStore((s) => s.gps);
   const battery = useTelemetryStore((s) => s.battery);
   const armed = useTelemetryStore((s) => s.flight.armed);

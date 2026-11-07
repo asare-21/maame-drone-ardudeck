@@ -7,6 +7,7 @@ import type { ConnectionMemory, SavedConnection } from '../stores/settings-store
 import { useSettingsStore } from '../stores/settings-store';
 import type { ConnectOptions } from '../../shared/ipc-channels';
 import { startCompanionWatch } from './companion-store';
+import { useConnectionStore } from '../stores/connection-store';
 
 export const MAAME = {
   fcSysid: 1,
@@ -97,5 +98,16 @@ export function installMaameProfile(): void {
       unsubscribe();
       apply();
     },
+  );
+}
+
+/**
+ * True only on the Maame primary link (Connect to Maame). A fleet/multi-vehicle
+ * link also shows as connected, but it has no Maame failover, no emergency bar
+ * and no script installer, so the Maame launch controls must not use it.
+ */
+export function useMaameLinkUp(): boolean {
+  return useConnectionStore(
+    (s) => s.connectionState.isConnected && !!s.connectionState.maameLinks?.length && !s.connectionState.focus?.viaFleet,
   );
 }
