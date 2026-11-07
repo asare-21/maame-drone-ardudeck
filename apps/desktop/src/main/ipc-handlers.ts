@@ -6973,7 +6973,8 @@ export function setupIpcHandlers(mainWindow: BrowserWindow): void {
       // heartbeat arrives, the handler at sendGcsHeartbeat clears
       // gcsHeartbeatInterval and reinstalls its own (with sysid/compid
       // captured from the FC) — same variable, seamless handover.
-      if (options.type === 'udp' && options.udpMode === 'client') {
+      // Maame: the Pi's mavlink-router is a UDP server too and stays silent until it hears from us.
+      if ((options.type === 'udp' && options.udpMode === 'client') || options.type === 'maame') {
         const sendEarlyGcsHeartbeat = () => {
           if (!currentTransport?.isOpen) return;
           try {
