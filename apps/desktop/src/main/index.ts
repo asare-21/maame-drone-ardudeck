@@ -194,7 +194,7 @@ function maybeShowKeychainNotice(): void {
   if (!isUpgrade) return;
   dialog.showMessageBoxSync({
     type: 'info',
-    title: 'ArduDeck', // i18n-exempt
+    title: 'MaameDrone-ArduDeck', // i18n-exempt
     message: t('main:mainIndex.keychainNoticeTitle'),
     detail: t('main:mainIndex.keychainNoticeDetail'),
     buttons: [t('main:mainIndex.gotIt')],
