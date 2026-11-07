@@ -25,3 +25,38 @@ describe('UdpTransport receive buffer', () => {
     expect(t.bytesToRead).toBeLessThanOrEqual(1024 * 1024 + 1400);
   });
 });
+
+describe('UdpTransport uplink metering', () => {
+  let t: UdpTransport | null = null;
+  afterEach(async () => { await t?.close(); t = null; });
+
+  /** Two MAVLink2 FILE_TRANSFER_PROTOCOL-sized frames: arrival times at a local listener. */
+  async function sendTwoFtpFrames(wideUplink?: boolean): Promise<number[]> {
+    const rxPort = 30000 + Math.floor(Math.random() * 20000);
+    const rx = createSocket('udp4');
+    const arrivals: number[] = [];
+    rx.on('message', () => arrivals.push(Date.now()));
+    await new Promise<void>((r) => rx.bind(rxPort, () => r()));
+    t = new UdpTransport({ localPort: rxPort + 1, remoteHost: '127.0.0.1', remotePort: rxPort, wideUplink });
+    await t.open();
+    const frame = new Uint8Array(263);
+    frame[0] = 0xfd; frame[1] = 251; frame[7] = 110; // msgid FILE_TRANSFER_PROTOCOL
+    const start = Date.now();
+    void t.write(frame);
+    void t.write(frame.slice());
+    await new Promise((r) => setTimeout(r, 600));
+    rx.close();
+    return arrivals.map((a) => a - start);
+  }
+
+  it('meters an unproven link (it may be an ELRS backpack): the second bulk frame waits', async () => {
+    expect((await sendTwoFtpFrames()).length).toBe(1);
+  });
+
+  it('sends at once on a link declared wide (Wi-Fi/LAN), so MAVFTP does not time out', async () => {
+    const at = await sendTwoFtpFrames(true);
+    expect(at.length).toBe(2);
+    expect(Math.max(...at)).toBeLessThan(300);
+  });
+});
+

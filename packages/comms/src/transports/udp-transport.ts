@@ -99,6 +99,7 @@ export class UdpTransport extends BaseTransport {
   private _isOpen = false;
 
   private _explicitRemote: boolean;
+  private readonly _knownWide: boolean;
 
   // Metered send queue: an ELRS transmitter's 1 KB FIFO corrupts frames on overflow.
   private _queue: QueuedFrame[] = [];
@@ -114,6 +115,7 @@ export class UdpTransport extends BaseTransport {
     this._remoteHost = options.remoteHost;
     this._remotePort = options.remotePort;
     this._explicitRemote = !!options.remoteHost && !!options.remotePort;
+    this._knownWide = options.wideUplink ?? false;
     this.readTimeout = options.readTimeout ?? 5000;
     this.writeTimeout = options.writeTimeout ?? 5000;
   }
@@ -170,7 +172,7 @@ export class UdpTransport extends BaseTransport {
       this.socket = null;
     }
 
-    this._provenWide = false;
+    this._provenWide = this._knownWide;
     this._inboundBytes = 0;
 
     return new Promise((resolve, reject) => {

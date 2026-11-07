@@ -221,4 +221,6 @@ export interface UdpOptions extends TransportOptions {
   remoteHost?: string;
   /** Remote port for sending */
   remotePort?: number;
+  /** Known high-bandwidth link (Wi-Fi/LAN): skip the ELRS-backpack uplink metering from the start. */
+  wideUplink?: boolean;
 }

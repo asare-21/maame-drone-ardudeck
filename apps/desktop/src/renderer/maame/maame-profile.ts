@@ -51,6 +51,7 @@ export function maameConnectOptions(sikPort?: string): ConnectOptions {
         udpRemoteHost: MAAME.wifiHost,
         udpRemotePort: MAAME.wifiPort,
         udpClientLocalPort: MAAME.wifiPort,
+        udpWideUplink: true, // the Pi's Wi-Fi is never an ELRS backpack; metering broke gate uploads
       },
     },
   ];

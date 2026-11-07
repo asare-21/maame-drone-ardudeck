@@ -1147,6 +1147,8 @@ export interface ConnectOptions {
    * letting the OS pick an ephemeral port (0) breaks reconnect.
    */
   udpClientLocalPort?: number;
+  /** UDP link known to be high-bandwidth (Wi-Fi/LAN): no ELRS uplink metering (MAVFTP needs full speed). */
+  udpWideUplink?: boolean;
   /**
    * Force a specific protocol, skipping auto-detection. 'crsf' is the one-way
    * telemetry an ELRS TX backpack broadcasts over WiFi.

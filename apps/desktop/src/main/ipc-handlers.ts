@@ -1880,6 +1880,7 @@ function buildBackgroundTransport(options: ConnectOptions): Transport {
           localPort: options.udpClientLocalPort ?? 14550,
           remoteHost: options.udpRemoteHost,
           remotePort: options.udpRemotePort,
+          wideUplink: options.udpWideUplink,
         });
       }
       return new UdpTransport({ localPort: options.udpPort ?? 14550 });
