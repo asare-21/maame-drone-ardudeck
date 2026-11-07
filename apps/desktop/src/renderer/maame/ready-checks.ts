@@ -29,6 +29,8 @@ export function piHealthProblem(tempC: number | null, throttled: number | null):
 export interface ReadyInput {
   nowMs: number;
   connected: boolean;
+  /** Why the link may not be used to fly (e.g. 4G without signing), or null. */
+  linkProblem?: string | null;
   baselineFailures: number;
   gpsFixType: number;
   gpsSats: number;
@@ -72,7 +74,12 @@ export function readyChecks(i: ReadyInput): ReadyCheck[] {
   const piProblem = piOnline ? piHealthProblem(i.piTempC, i.piThrottled) : null;
   const prearm = blockingPrearm(i.messages, i.nowMs);
   return [
-    { id: 'link', label: 'Link to drone', ok: i.connected, detail: i.connected ? 'connected (Maame link)' : 'use "Connect to Maame" (a multi-vehicle/fleet link is not enough)' },
+    {
+      id: 'link',
+      label: 'Link to drone',
+      ok: i.connected && !i.linkProblem,
+      detail: !i.connected ? 'use "Connect to Maame" (a multi-vehicle/fleet link is not enough)' : i.linkProblem ?? 'connected (Maame link)',
+    },
     {
       id: 'baseline',
       label: 'Safety baseline',

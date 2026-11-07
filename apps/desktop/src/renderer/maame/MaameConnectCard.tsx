@@ -11,6 +11,14 @@ export function MaameConnectCard() {
   const { isConnecting, connect } = useConnectionStore();
   const [ports, setPorts] = useState<SerialPortInfo[]>([]);
   const [sikPort, setSikPort] = useState('');
+  // 4G: the Pi's Tailscale address; remembered on this laptop only
+  const [lteHost, setLteHost] = useState(() => {
+    try { return localStorage.getItem('maame.lteHost') ?? ''; } catch { return ''; }
+  });
+  const saveLte = (v: string) => {
+    setLteHost(v);
+    try { localStorage.setItem('maame.lteHost', v.trim()); } catch { /* not remembered, still used */ }
+  };
 
   const refresh = async () => setPorts(await window.electronAPI.listPorts());
   useEffect(() => {
@@ -22,6 +30,7 @@ export function MaameConnectCard() {
       <div className="text-sm font-medium">Maame drone</div>
       <div className="text-xs text-gray-400">
         Wi-Fi {MAAME.wifiHost}:{MAAME.wifiPort}
+        {lteHost.trim() ? ` + 4G ${lteHost.trim()}` : ''}
         {sikPort ? ` + SiK ${sikPort} @ ${MAAME.sikBaud}` : ''}, automatic failover
       </div>
       <div className="flex gap-2">
@@ -41,8 +50,15 @@ export function MaameConnectCard() {
           ))}
         </select>
       </div>
+      <input
+        value={lteHost}
+        onChange={(e) => saveLte(e.target.value)}
+        placeholder="4G address (Tailscale), optional"
+        aria-label="4G address (Tailscale)"
+        className="input w-full text-xs"
+      />
       <button
-        onClick={() => void connect(maameConnectOptions(sikPort || undefined))}
+        onClick={() => void connect(maameConnectOptions(sikPort || undefined, lteHost))}
         disabled={isConnecting}
         className="btn btn-primary w-full"
       >

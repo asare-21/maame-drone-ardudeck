@@ -59,4 +59,9 @@ describe('readyChecks', () => {
     expect(piHealthProblem(null, null)).toBeNull();
     expect(piHealthProblem(60, -1)).toBeNull();
   });
+
+  it('blocks launch over a link that needs signing (4G) while signing is off', () => {
+    const r = readyChecks({ ...good, linkProblem: '4G link without signing: turn signing on first' });
+    expect(r.find((c) => c.id === 'link')).toMatchObject({ ok: false, detail: '4G link without signing: turn signing on first' });
+  });
 });

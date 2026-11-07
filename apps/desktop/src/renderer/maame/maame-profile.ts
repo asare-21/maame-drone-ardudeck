@@ -17,6 +17,8 @@ export const MAAME = {
   /** Pi mavlink-router UDP server, reachable by mDNS on its own network or its hotspot. */
   wifiHost: 'maame.local',
   wifiPort: 14550,
+  /** 4G over Tailscale reaches the same router port; its own local port so it never fights Wi-Fi for 14550. */
+  lteLocalPort: 14560,
 } as const;
 
 /** Upstream's factory serial baud; only this value is replaced by the SiK baud. */
@@ -42,7 +44,7 @@ export const MAAME_WIFI_CONNECTION: SavedConnection = {
  * mavlink-router), then the SiK radio when a port is chosen. The main process
  * fails over between them (main/maame/redundant-transport.ts).
  */
-export function maameConnectOptions(sikPort?: string): ConnectOptions {
+export function maameConnectOptions(sikPort?: string, lteHost?: string): ConnectOptions {
   const maameLinks: NonNullable<ConnectOptions['maameLinks']> = [
     {
       name: 'Wi-Fi',
@@ -56,6 +58,16 @@ export function maameConnectOptions(sikPort?: string): ConnectOptions {
       },
     },
   ];
+  const lte = lteHost?.trim();
+  if (lte) {
+    maameLinks.push({
+      name: '4G',
+      options: {
+        type: 'udp', udpMode: 'client', udpRemoteHost: lte, udpRemotePort: MAAME.wifiPort,
+        udpClientLocalPort: MAAME.lteLocalPort, udpWideUplink: true,
+      },
+    });
+  }
   if (sikPort) maameLinks.push({ name: 'SiK', options: { type: 'serial', port: sikPort, baudRate: MAAME.sikBaud } });
   return { type: 'maame', protocol: 'mavlink', maameLinks };
 }
@@ -109,5 +121,14 @@ export function installMaameProfile(): void {
 export function useMaameLinkUp(): boolean {
   return useConnectionStore(
     (s) => s.connectionState.isConnected && !!s.connectionState.maameLinks?.length && !s.connectionState.focus?.viaFleet,
+  );
+}
+
+/** 4G (over the internet) may only fly with MAVLink signing on; null when the link is fine. */
+export function useMaameLinkProblem(): string | null {
+  return useConnectionStore((s) =>
+    s.connectionState.maameLinks?.some((l) => l.name === '4G') && !s.connectionState.fcSigning
+      ? '4G link without signing: turn signing on first (Settings > Signing)'
+      : null,
   );
 }

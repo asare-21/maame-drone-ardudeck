@@ -10,6 +10,14 @@ describe('maameConnectOptions', () => {
     expect(both.maameLinks?.[0]?.options).toMatchObject({ type: 'udp', udpMode: 'client', udpRemoteHost: 'maame.local', udpRemotePort: 14550 });
     expect(both.maameLinks?.[1]?.options).toEqual({ type: 'serial', port: '/dev/cu.usbserial-SIK', baudRate: MAAME.sikBaud });
   });
+
+  it('adds 4G (Tailscale) between Wi-Fi and SiK, on its own local port, only when an address is given', () => {
+    const all = maameConnectOptions('/dev/cu.usbserial-SIK', '100.101.102.103');
+    expect(all.maameLinks?.map((l) => l.name)).toEqual(['Wi-Fi', '4G', 'SiK']);
+    expect(all.maameLinks?.[1]?.options).toMatchObject({ type: 'udp', udpRemoteHost: '100.101.102.103', udpRemotePort: 14550, udpWideUplink: true });
+    expect(all.maameLinks?.[1]?.options.udpClientLocalPort).not.toBe(all.maameLinks?.[0]?.options.udpClientLocalPort);
+    expect(maameConnectOptions(undefined, '  ').maameLinks?.map((l) => l.name)).toEqual(['Wi-Fi']);
+  });
 });
 
 describe('maameConnectionSeed', () => {

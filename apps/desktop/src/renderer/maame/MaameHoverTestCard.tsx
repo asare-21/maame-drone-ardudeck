@@ -12,7 +12,7 @@ import { useMaameBaselineResults } from './MaameSafetyCard';
 import { startUploadedMission, useFcParam } from './MaameFlightCard';
 import { HOVER_HEIGHTS_M, HOVER_HOLD_S, hoverTestMission, hoverTestProblem } from './hover-test';
 import { MAV_STATE_ACTIVE, readyChecks } from './ready-checks';
-import { useMaameLinkUp } from './maame-profile';
+import { useMaameLinkProblem, useMaameLinkUp } from './maame-profile';
 
 const LAND_SPEED_MS = 0.5; // ArduCopter LAND_SPEED default (50 cm/s)
 
@@ -28,6 +28,7 @@ export function MaameHoverTestCard() {
   const [error, setError] = useState<string | null>(null);
 
   const connected = useMaameLinkUp();
+  const linkProblem = useMaameLinkProblem();
   const gps = useTelemetryStore((s) => s.gps);
   const battery = useTelemetryStore((s) => s.battery);
   const armed = useTelemetryStore((s) => s.flight.armed);
@@ -38,7 +39,7 @@ export function MaameHoverTestCard() {
 
   // The test brings its own mission, so the planned-mission checks do not apply.
   const checks = readyChecks({
-    nowMs, connected,
+    nowMs, connected, linkProblem,
     baselineFailures: baseline.filter((r) => !r.ok).length,
     gpsFixType: gps?.fixType ?? 0, gpsSats: gps?.satellites ?? 0,
     batteryVoltage: battery?.voltage ?? 0, armVoltage: fcParam('BATT_ARM_VOLT'),

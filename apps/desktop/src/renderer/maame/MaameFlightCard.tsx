@@ -13,7 +13,7 @@ import { useTelemetryStore } from '../stores/telemetry-store';
 import { freshPiHealth, useMaameCompanion } from './companion-store';
 import { useMaameBaselineResults } from './MaameSafetyCard';
 import { MAV_STATE_ACTIVE, readyChecks } from './ready-checks';
-import { useMaameLinkUp } from './maame-profile';
+import { useMaameLinkProblem, useMaameLinkUp } from './maame-profile';
 
 export const COPTER_MODE = { STABILIZE: 0, AUTO: 3, RTL: 6, LAND: 9, BRAKE: 17 } as const;
 
@@ -50,6 +50,7 @@ export function MaameFlightCard() {
   }, []);
 
   const connected = useMaameLinkUp();
+  const linkProblem = useMaameLinkProblem();
   const gps = useTelemetryStore((s) => s.gps);
   const battery = useTelemetryStore((s) => s.battery);
   const armed = useTelemetryStore((s) => s.flight.armed);
@@ -72,6 +73,7 @@ export function MaameFlightCard() {
   const checks = readyChecks({
     nowMs,
     connected,
+    linkProblem,
     baselineFailures: baseline.filter((r) => !r.ok).length,
     gpsFixType: gps?.fixType ?? 0,
     gpsSats: gps?.satellites ?? 0,
