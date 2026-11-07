@@ -2861,6 +2861,16 @@ const api = {
     return () => ipcRenderer.removeListener(IPC_CHANNELS.MAAME_COMPANION_VALUE, handler);
   },
 
+  /** Maame: upload the bundled Pi arming gate to the FC, reboot it and wait for the gate to run. */
+  maameInstallGate: (): Promise<
+    { status: 'installed' } | { status: 'manual'; targetPath: string; reason: string } | { status: 'error'; message: string }
+  > => ipcRenderer.invoke(IPC_CHANNELS.MAAME_GATE_INSTALL),
+  onMaameGateProgress: (callback: (progress: { phase: string; param?: string; value?: number; written?: number; total?: number }) => void) => {
+    const handler = (_: unknown, progress: { phase: string }) => callback(progress);
+    ipcRenderer.on(IPC_CHANNELS.MAAME_GATE_PROGRESS, handler);
+    return () => { ipcRenderer.removeListener(IPC_CHANNELS.MAAME_GATE_PROGRESS, handler); };
+  },
+
   /** Maame: Pi companion ACTIVE (opens the FC arming gate) or STANDBY. */
   maameCompanionSetReady: (ready: boolean): Promise<boolean> =>
     ipcRenderer.invoke(IPC_CHANNELS.MAAME_COMPANION_SET_READY, ready),

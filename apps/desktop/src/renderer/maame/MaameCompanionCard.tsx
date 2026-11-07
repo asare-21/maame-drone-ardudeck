@@ -4,6 +4,11 @@
  * Display only; "Pi ready" lives in the launch card.
  */
 import { useEffect, useState } from 'react';
+import { MAAME_GATE_VERSION } from '../../shared/maame-gate';
+import { useConnectionStore } from '../stores/connection-store';
+import { useParameterStore } from '../stores/parameter-store';
+import { useTelemetryStore } from '../stores/telemetry-store';
+import { useFcParam } from './MaameFlightCard';
 import { freshPiHealth, useMaameCompanion } from './companion-store';
 import { MAV_STATE_ACTIVE, PI_MAX_TEMP_C, PI_TIMEOUT_MS } from './ready-checks';
 
@@ -73,6 +78,62 @@ export function MaameCompanionCard() {
         </dl>
       )}
       {pi.lastText && <p className="mt-1 text-xs text-gray-400">Last message: {pi.lastText}</p>}
+      <GateRow />
+    </div>
+  );
+}
+
+/** The arming gate Lua on the FC: running version (PIG_VER) and install/update. */
+function GateRow() {
+  const connected = useConnectionStore((s) => s.connectionState.isConnected);
+  const armed = useTelemetryStore((s) => s.flight.armed);
+  const running = useFcParam()('PIG_VER');
+  const [phase, setPhase] = useState<string | null>(null);
+  const [result, setResult] = useState<[string, Tone] | null>(null);
+
+  useEffect(() => window.electronAPI.onMaameGateProgress((p) => setPhase(p.phase)), []);
+
+  const [label, tone]: [string, Tone] =
+    running === null
+      ? ['not detected (older gate, not running, or parameters not loaded)', 'warn']
+      : running >= MAAME_GATE_VERSION
+        ? [`v${running} running (latest)`, 'ok']
+        : [`v${running} running, v${MAAME_GATE_VERSION} available`, 'warn'];
+
+  const install = async () => {
+    const go = window.confirm(
+      `Install arming gate v${MAAME_GATE_VERSION} on the flight controller?\n\n` +
+        'It uploads the script and REBOOTS the flight controller (about a minute). Disarmed, props off.',
+    );
+    if (!go) return;
+    setResult(null);
+    setPhase('checking');
+    const r = await window.electronAPI.maameInstallGate();
+    setPhase(null);
+    if (r.status === 'installed') {
+      setResult([`v${MAAME_GATE_VERSION} installed and running`, 'ok']);
+      void useParameterStore.getState().fetchParameters({ force: true });
+    } else if (r.status === 'manual') {
+      setResult([`could not upload (${r.reason}): copy it to ${r.targetPath} on the SD card`, 'bad']);
+    } else {
+      setResult([r.message, 'bad']);
+    }
+  };
+
+  return (
+    <div className="mt-2 border-t border-gray-700/50 pt-2 text-xs">
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-gray-400">Arming gate script</span>
+        <span className={TONE[tone]}>{label}</span>
+      </div>
+      {result && <p className={`mt-1 ${TONE[result[1]]}`}>{result[0]}</p>}
+      <button
+        className="btn btn-secondary mt-1 w-full px-2 py-1 text-xs"
+        disabled={!connected || armed || phase !== null}
+        onClick={() => void install()}
+      >
+        {phase ? `Installing: ${phase}…` : running !== null && running >= MAAME_GATE_VERSION ? `Reinstall gate v${MAAME_GATE_VERSION}` : `Install gate v${MAAME_GATE_VERSION}`}
+      </button>
     </div>
   );
 }

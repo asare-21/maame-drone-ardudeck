@@ -847,6 +847,9 @@ export const IPC_CHANNELS = {
   MAAME_COMPANION_SET_READY: 'maame:companion-set-ready',
   /** Maame: Pi health value (NAMED_VALUE_FLOAT from comp 191, e.g. PI_TEMP), see companion/startup-files/maame_status.py. */
   MAAME_COMPANION_VALUE: 'maame:companion-value',
+  /** Maame: install/update the Pi arming gate Lua on the FC (reboots it), with progress. */
+  MAAME_GATE_INSTALL: 'maame:gate-install',
+  MAAME_GATE_PROGRESS: 'maame:gate-progress',
 
   // Layer 2 (Agent — real-time streams via WebSocket)
   COMPANION_METRICS: 'companion:metrics',

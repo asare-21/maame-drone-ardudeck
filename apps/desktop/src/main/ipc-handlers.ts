@@ -192,6 +192,8 @@ import { getScriptBundle } from './script-installer/bundle.js';
 import * as installerService from './script-installer/installer-service.js';
 import { installScript, setScriptInstallAdapter } from './script-installer/install-script.js';
 import sonarLuaSource from './lua-scripts/ardudeck_sonar.lua?raw';
+import maameGateLuaSource from './lua-scripts/maame_pi_gate.lua?raw';
+import { MAAME_GATE_FILENAME, MAAME_GATE_PARAM } from '../shared/maame-gate.js';
 import type { FcAdapter } from './script-installer/installer-service.js';
 import type { PreflightFix } from '../shared/script-installer-types.js';
 import {
@@ -12000,6 +12002,14 @@ export function setupIpcHandlers(mainWindow: BrowserWindow): void {
       safe,
     );
   });
+
+  // Maame: the Pi arming gate; the install waits for PIG_VER, which only the running gate registers.
+  ipcMain.handle(IPC_CHANNELS.MAAME_GATE_INSTALL, async (event) =>
+    installScript(
+      { filename: MAAME_GATE_FILENAME, source: maameGateLuaSource, expectParam: MAAME_GATE_PARAM },
+      (progress) => { if (!event.sender.isDestroyed()) event.sender.send(IPC_CHANNELS.MAAME_GATE_PROGRESS, progress); },
+    ),
+  );
 
   ipcMain.handle(IPC_CHANNELS.EDGETX_HUD_CONFIG_WRITE, async (
     _,
