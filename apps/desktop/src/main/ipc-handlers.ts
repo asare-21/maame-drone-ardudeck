@@ -5732,6 +5732,8 @@ export function setupIpcHandlers(mainWindow: BrowserWindow): void {
               // These send their own heartbeats but don't represent the actual vehicle
               if (!isVehicleHeartbeat(vehicleType, autopilotType, packet.compid)) {
                 sendLog(mainWindow, 'debug', `Ignoring heartbeat from non-vehicle component: ${VEHICLE_NAMES[vehicleType] || vehicleType} (sysid=${packet.sysid}, compid=${packet.compid})`);
+                // The companion (Maame Pi) heartbeat is reported from parseTelemetry; skipping it here hid the Pi.
+                if (packet.compid === 191) parseTelemetry(mainWindow, packet);
                 continue;
               }
 
