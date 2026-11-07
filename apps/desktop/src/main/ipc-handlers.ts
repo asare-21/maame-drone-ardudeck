@@ -5591,7 +5591,11 @@ export function setupIpcHandlers(mainWindow: BrowserWindow): void {
 
             // Detect signed incoming packets from FC. Only a CRC-checked packet counts: an
             // unknown msgid is unverified bytes, and its signed bit proves nothing.
-            if (packet.isSigned && packet.crcValidated && !connectionState.fcSigning) {
+            // Only the autopilot's own packets count: a signing companion (Maame Pi, comp 191)
+            // on the same link is not the FC, and judging keys by its frames misleads.
+            const fromAutopilot = packet.compid === (connectionState.componentId ?? 1)
+              && (connectionState.systemId == null || packet.sysid === connectionState.systemId);
+            if (packet.isSigned && packet.crcValidated && fromAutopilot && !connectionState.fcSigning) {
               connectionState.fcSigning = true;
               sendLog(mainWindow, 'info', 'FC is sending signed packets - MAVLink signing is active on the vehicle');
 

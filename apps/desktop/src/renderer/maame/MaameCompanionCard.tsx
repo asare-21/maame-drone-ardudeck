@@ -5,6 +5,7 @@
  */
 import { useEffect, useState } from 'react';
 import { MAAME_GATE_VERSION } from '../../shared/maame-gate';
+import { useConnectionStore } from '../stores/connection-store';
 import { useParameterStore } from '../stores/parameter-store';
 import { useTelemetryStore } from '../stores/telemetry-store';
 import { useFcParam } from './MaameFlightCard';
@@ -78,6 +79,7 @@ export function MaameCompanionCard() {
         </dl>
       )}
       {pi.lastText && <p className="mt-1 text-xs text-gray-400">Last message: {pi.lastText}</p>}
+      <SigningRow />
       <GateRow />
     </div>
   );
@@ -134,6 +136,25 @@ function GateRow() {
       >
         {phase ? `Installing: ${phase}…` : running !== null && running >= MAAME_GATE_VERSION ? `Reinstall gate v${MAAME_GATE_VERSION}` : `Install gate v${MAAME_GATE_VERSION}`}
       </button>
+    </div>
+  );
+}
+
+/** MAVLink2 signing on the link: without it anyone on the Pi's open hotspot can command the drone. */
+export function signingState(fcSigning: boolean, gcsSigning: boolean): [string, Tone] {
+  if (fcSigning && gcsSigning) return ['ON (FC, Pi and ArduDeck sign)', 'ok'];
+  if (fcSigning) return ['FC signs, ArduDeck has no matching key: commands are ignored (Settings > Signing)', 'bad'];
+  return ['OFF: anyone on the open hotspot can command the drone (Settings > Signing)', 'warn'];
+}
+
+function SigningRow() {
+  const fcSigning = useConnectionStore((s) => !!s.connectionState.fcSigning);
+  const gcsSigning = useConnectionStore((s) => !!s.connectionState.signingEnabled);
+  const [label, tone] = signingState(fcSigning, gcsSigning);
+  return (
+    <div className="mt-2 flex items-start justify-between gap-2 border-t border-gray-700/50 pt-2 text-xs">
+      <span className="shrink-0 text-gray-400">Link signing</span>
+      <span className={`text-right ${TONE[tone]}`}>{label}</span>
     </div>
   );
 }
