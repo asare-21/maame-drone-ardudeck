@@ -3,10 +3,13 @@
  * three confirmed steps: upload mission -> Pi ready (opens the FC arming gate) ->
  * AUTO + arm (AUTO_OPTIONS lets ArduPilot arm and take off by itself).
  */
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useConnectionStore } from '../stores/connection-store';
 import { useMessagesStore } from '../stores/messages-store';
 import { useMissionStore } from '../stores/mission-store';
+import { useParameterStore } from '../stores/parameter-store';
+import { fenceWarningForPoint } from '../utils/fence-check';
+import { checkMission } from './mission-check';
 import { useTelemetryStore } from '../stores/telemetry-store';
 import { useMaameCompanion } from './companion-store';
 import { useMaameBaselineResults } from './MaameSafetyCard';
@@ -24,6 +27,19 @@ export async function startUploadedMission(): Promise<boolean> {
   if (!(await window.electronAPI.mavlinkSetMode(COPTER_MODE.STABILIZE))) return false;
   if (!(await window.electronAPI.mavlinkSetMode(COPTER_MODE.AUTO))) return false;
   return window.electronAPI.mavlinkArmDisarm(true, false);
+}
+
+/** FC parameter as the FC holds it (not an unsaved local edit), null when not loaded. */
+export function useFcParam(): (name: string) => number | null {
+  const parameters = useParameterStore((s) => s.parameters);
+  return useMemo(
+    () => (name: string) => {
+      const p = parameters.get(name);
+      if (!p) return null;
+      return p.isModified ? (p.originalValue ?? p.value) : p.value;
+    },
+    [parameters],
+  );
 }
 
 export function MaameFlightCard() {
@@ -44,6 +60,12 @@ export function MaameFlightCard() {
   const uploadMission = useMissionStore((s) => s.uploadMission);
   const pi = useMaameCompanion();
   const baseline = useMaameBaselineResults();
+  const fcParam = useFcParam();
+  const homePosition = useMissionStore((s) => s.homePosition);
+  const home = homePosition ?? (gps?.lat ? { lat: gps.lat, lon: gps.lon } : null);
+  const missionCheck = missionItems.length
+    ? checkMission({ items: missionItems, home, param: fcParam, outsideFence: fenceWarningForPoint })
+    : null;
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -54,11 +76,13 @@ export function MaameFlightCard() {
     gpsFixType: gps?.fixType ?? 0,
     gpsSats: gps?.satellites ?? 0,
     batteryVoltage: battery?.voltage ?? 0,
+    armVoltage: fcParam('BATT_ARM_VOLT'),
     piLastSeenMs: pi.lastSeenMs,
     piStatus: pi.status,
     messages,
     missionItems: missionItems.length,
     uploadedItems: uploadedAt === null ? null : uploadedCount,
+    missionCheck,
   });
   const ok = (id: string) => checks.find((c) => c.id === id)!.ok;
   const allOk = checks.every((c) => c.ok);

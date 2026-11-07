@@ -4,8 +4,10 @@
  * from the stores.
  */
 
+import type { MissionCheck } from './mission-check';
+
 export const MAAME_CELLS = 6;
-/** Li-ion resting voltage per cell below which a mission should not start. */
+/** Floor per cell when the FC's BATT_ARM_VOLT is unknown; the FC's own value wins when higher. */
 export const MIN_LAUNCH_CELL_V = 3.6;
 export const MIN_SATS = 8;
 /** ArduPilot repeats pre-arm failures every 30 s while disarmed. */
@@ -21,16 +23,20 @@ export interface ReadyInput {
   gpsFixType: number;
   gpsSats: number;
   batteryVoltage: number;
+  /** FC BATT_ARM_VOLT (the FC refuses to arm below it), null when not loaded. */
+  armVoltage: number | null;
   piLastSeenMs: number | null;
   piStatus: number | null;
   /** FC STATUSTEXTs with their timestamps. */
   messages: Array<{ text: string; timestamp: number }>;
   missionItems: number;
   uploadedItems: number | null;
+  /** Fence/endurance verdict on the planned mission, null when nothing is planned. */
+  missionCheck: MissionCheck | null;
 }
 
 export interface ReadyCheck {
-  id: 'link' | 'baseline' | 'gps' | 'battery' | 'pi' | 'prearm' | 'mission';
+  id: 'link' | 'baseline' | 'gps' | 'battery' | 'pi' | 'prearm' | 'mission' | 'missionSafe';
   label: string;
   ok: boolean;
   detail: string;
@@ -47,6 +53,8 @@ export function blockingPrearm(messages: ReadyInput['messages'], nowMs: number):
 
 export function readyChecks(i: ReadyInput): ReadyCheck[] {
   const cellV = i.batteryVoltage / MAAME_CELLS;
+  const needV = Math.max(i.armVoltage ?? 0, MIN_LAUNCH_CELL_V * MAAME_CELLS);
+  const mc = i.missionCheck;
   const piOnline = i.piLastSeenMs !== null && i.nowMs - i.piLastSeenMs < PI_TIMEOUT_MS;
   const prearm = blockingPrearm(i.messages, i.nowMs);
   return [
@@ -66,8 +74,8 @@ export function readyChecks(i: ReadyInput): ReadyCheck[] {
     {
       id: 'battery',
       label: 'Battery',
-      ok: cellV >= MIN_LAUNCH_CELL_V,
-      detail: `${i.batteryVoltage.toFixed(2)} V (${cellV.toFixed(2)} V/cell, need ${MIN_LAUNCH_CELL_V})`,
+      ok: i.batteryVoltage >= needV,
+      detail: `${i.batteryVoltage.toFixed(2)} V (${cellV.toFixed(2)} V/cell), need ${needV.toFixed(2)} V${i.armVoltage ? ' (FC arming minimum)' : ''}`,
     },
     {
       id: 'pi',
@@ -86,6 +94,16 @@ export function readyChecks(i: ReadyInput): ReadyCheck[] {
           : i.uploadedItems === i.missionItems
             ? `${i.missionItems} items uploaded`
             : 'planned but not uploaded',
+    },
+    {
+      id: 'missionSafe',
+      label: 'Mission safety',
+      ok: !!mc?.ok,
+      detail: !mc
+        ? 'no mission planned'
+        : mc.ok
+          ? `inside the fence, about ${mc.minutes.toFixed(1)} min, ${Math.round(mc.packUse * 100)}% of the battery`
+          : mc.problems.join('; '),
     },
   ];
 }

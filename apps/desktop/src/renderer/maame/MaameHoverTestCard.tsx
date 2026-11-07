@@ -10,7 +10,7 @@ import { useMissionStore } from '../stores/mission-store';
 import { useTelemetryStore } from '../stores/telemetry-store';
 import { useMaameCompanion } from './companion-store';
 import { useMaameBaselineResults } from './MaameSafetyCard';
-import { startUploadedMission } from './MaameFlightCard';
+import { startUploadedMission, useFcParam } from './MaameFlightCard';
 import { HOVER_HEIGHTS_M, HOVER_HOLD_S, hoverTestMission, hoverTestProblem } from './hover-test';
 import { MAV_STATE_ACTIVE, readyChecks } from './ready-checks';
 
@@ -34,16 +34,17 @@ export function MaameHoverTestCard() {
   const messages = useMessagesStore((s) => s.messages);
   const pi = useMaameCompanion();
   const baseline = useMaameBaselineResults();
+  const fcParam = useFcParam();
 
-  // The test brings its own mission, so the "mission uploaded" check does not apply.
+  // The test brings its own mission, so the planned-mission checks do not apply.
   const checks = readyChecks({
     nowMs, connected,
     baselineFailures: baseline.filter((r) => !r.ok).length,
     gpsFixType: gps?.fixType ?? 0, gpsSats: gps?.satellites ?? 0,
-    batteryVoltage: battery?.voltage ?? 0,
+    batteryVoltage: battery?.voltage ?? 0, armVoltage: fcParam('BATT_ARM_VOLT'),
     piLastSeenMs: pi.lastSeenMs, piStatus: pi.status,
-    messages, missionItems: 1, uploadedItems: 1,
-  }).filter((c) => c.id !== 'mission');
+    messages, missionItems: 1, uploadedItems: 1, missionCheck: null,
+  }).filter((c) => c.id !== 'mission' && c.id !== 'missionSafe');
   const failing = checks.filter((c) => !c.ok);
   const piActive = pi.status === MAV_STATE_ACTIVE && !failing.some((c) => c.id === 'pi');
   const plan = { heightM, holdS, lat: gps?.lat ?? 0, lon: gps?.lon ?? 0 };
