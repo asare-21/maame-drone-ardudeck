@@ -2871,6 +2871,9 @@ const api = {
     return () => { ipcRenderer.removeListener(IPC_CHANNELS.MAAME_GATE_PROGRESS, handler); };
   },
 
+  /** Maame: open Documents/MaameDrone/flight-logs (one .tlog per Maame connection). */
+  maameOpenFlightLogs: (): Promise<string> => ipcRenderer.invoke(IPC_CHANNELS.MAAME_OPEN_FLIGHT_LOGS),
+
   /** Maame: Pi companion ACTIVE (opens the FC arming gate) or STANDBY. */
   maameCompanionSetReady: (ready: boolean): Promise<boolean> =>
     ipcRenderer.invoke(IPC_CHANNELS.MAAME_COMPANION_SET_READY, ready),

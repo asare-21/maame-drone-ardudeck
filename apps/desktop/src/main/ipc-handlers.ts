@@ -5,7 +5,7 @@
 
 import { ipcMain, BrowserWindow, dialog, app, shell, safeStorage, session, ShareMenu, webContents as allWebContents, type WebContents } from 'electron';
 import { join, dirname, basename } from 'path';
-import { existsSync, readFileSync, statSync } from 'fs';
+import { existsSync, mkdirSync, readFileSync, statSync } from 'fs';
 import { execFile as execFileCb } from 'node:child_process';
 import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
@@ -194,6 +194,12 @@ import { installScript, setScriptInstallAdapter } from './script-installer/insta
 import sonarLuaSource from './lua-scripts/ardudeck_sonar.lua?raw';
 import maameGateLuaSource from './lua-scripts/maame_pi_gate.lua?raw';
 import { MAAME_GATE_FILENAME, MAAME_GATE_PARAM } from '../shared/maame-gate.js';
+import { maameTlog } from './maame/tlog.js';
+
+/** Per-connection Maame telemetry logs. */
+function maameFlightLogDir(): string {
+  return join(app.getPath('documents'), 'MaameDrone', 'flight-logs');
+}
 import type { FcAdapter } from './script-installer/installer-service.js';
 import type { PreflightFix } from '../shared/script-installer-types.js';
 import {
@@ -5588,6 +5594,7 @@ export function setupIpcHandlers(mainWindow: BrowserWindow): void {
           for await (const packet of mavlinkParser.parse(chunk)) {
             connectionState.packetsReceived++;
             noteVehicleTraffic();
+            if (currentTransport instanceof RedundantTransport) maameTlog.record(packet.buffer);
 
             // Detect signed incoming packets from FC. Only a CRC-checked packet counts: an
             // unknown msgid is unverified bytes, and its signed bit proves nothing.
@@ -6650,6 +6657,11 @@ export function setupIpcHandlers(mainWindow: BrowserWindow): void {
           // One drone over several links with failover (main/maame/redundant-transport.ts).
           const links = (options.maameLinks ?? []).map((l) => ({ name: l.name, transport: buildBackgroundTransport(l.options) }));
           const maame = new RedundantTransport(links);
+          // Telemetry log of the whole connection: frames sent here, frames received in the parse loop.
+          const tlogPath = maameTlog.start(maameFlightLogDir());
+          maame.onWrite = (frame) => maameTlog.record(frame);
+          maame.on('close', () => void maameTlog.stop());
+          sendLog(mainWindow, 'info', 'Maame flight log recording', tlogPath);
           maame.on('linkchange', (c: LinkChange) => {
             sendLog(mainWindow, 'warn', `Maame link switched: ${c.from} -> ${c.to}`, c.reason);
             // ArduPilot only streams telemetry to a link that asked for it
@@ -12006,6 +12018,12 @@ export function setupIpcHandlers(mainWindow: BrowserWindow): void {
       (progress) => { if (!event.sender.isDestroyed()) event.sender.send(IPC_CHANNELS.RADIO_HUD_SONAR_PROGRESS, progress); },
       safe,
     );
+  });
+
+  ipcMain.handle(IPC_CHANNELS.MAAME_OPEN_FLIGHT_LOGS, async () => {
+    const dir = maameFlightLogDir();
+    mkdirSync(dir, { recursive: true });
+    return shell.openPath(dir);
   });
 
   // Maame: the Pi arming gate; the install waits for PIG_VER, which only the running gate registers.

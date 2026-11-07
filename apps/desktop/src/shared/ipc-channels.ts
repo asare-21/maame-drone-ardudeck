@@ -850,6 +850,8 @@ export const IPC_CHANNELS = {
   /** Maame: install/update the Pi arming gate Lua on the FC (reboots it), with progress. */
   MAAME_GATE_INSTALL: 'maame:gate-install',
   MAAME_GATE_PROGRESS: 'maame:gate-progress',
+  /** Maame: open the folder of per-connection telemetry logs (.tlog). */
+  MAAME_OPEN_FLIGHT_LOGS: 'maame:open-flight-logs',
 
   // Layer 2 (Agent — real-time streams via WebSocket)
   COMPANION_METRICS: 'companion:metrics',

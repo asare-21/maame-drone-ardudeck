@@ -91,6 +91,9 @@ export class RedundantTransport extends BaseTransport {
   private lastStatusSig = '';
   private opened = false;
 
+  /** Sees every frame sent to the drone (the Maame tlog records them). */
+  onWrite: ((frame: Uint8Array) => void) | null = null;
+
   constructor(links: RedundantLink[], timing: FailoverTiming = DEFAULT_TIMING, now: () => number = Date.now) {
     super();
     if (links.length === 0) throw new Error('RedundantTransport needs at least one link');
@@ -167,6 +170,7 @@ export class RedundantTransport extends BaseTransport {
   }
 
   async write(data: Uint8Array): Promise<void> {
+    this.onWrite?.(data);
     if (isHeartbeatFrame(data)) {
       await Promise.allSettled(this.links.filter((l) => l.transport.isOpen).map((l) => l.transport.write(data)));
       return;

@@ -48,6 +48,9 @@ export function MaameConnectCard() {
       >
         {isConnecting ? 'Connecting…' : 'Connect to Maame'}
       </button>
+      <button onClick={() => void window.electronAPI.maameOpenFlightLogs()} className="btn btn-secondary mt-2 w-full px-2 py-1 text-xs">
+        Open flight logs (one .tlog per connection)
+      </button>
     </div>
   );
 }
