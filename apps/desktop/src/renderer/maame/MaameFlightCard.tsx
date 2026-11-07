@@ -14,6 +14,18 @@ import { MAV_STATE_ACTIVE, readyChecks } from './ready-checks';
 
 export const COPTER_MODE = { STABILIZE: 0, AUTO: 3, RTL: 6, LAND: 9, BRAKE: 17 } as const;
 
+/**
+ * Start the mission already on the FC: re-enter AUTO so it starts from the top
+ * (entering AUTO starts the mission once; setting AUTO while in AUTO does nothing,
+ * leaving the drone to arm, sit and auto-disarm), then arm. STABILIZE is always
+ * allowed while disarmed; AUTO_OPTIONS lets ArduPilot arm and take off by itself.
+ */
+export async function startUploadedMission(): Promise<boolean> {
+  if (!(await window.electronAPI.mavlinkSetMode(COPTER_MODE.STABILIZE))) return false;
+  if (!(await window.electronAPI.mavlinkSetMode(COPTER_MODE.AUTO))) return false;
+  return window.electronAPI.mavlinkArmDisarm(true, false);
+}
+
 export function MaameFlightCard() {
   const [nowMs, setNowMs] = useState(Date.now());
   useEffect(() => {
@@ -71,13 +83,7 @@ export function MaameFlightCard() {
           'Props on, area clear, people back. Emergency controls appear in the header once armed.',
       );
       if (!go) return true;
-      // Re-enter AUTO so it starts the uploaded mission: entering AUTO starts the
-      // mission once, and setting AUTO while already in AUTO does nothing (an
-      // earlier AUTO with no or an old mission would leave the drone to arm, sit
-      // and auto-disarm). STABILIZE is always allowed while disarmed.
-      if (!(await window.electronAPI.mavlinkSetMode(COPTER_MODE.STABILIZE))) return false;
-      if (!(await window.electronAPI.mavlinkSetMode(COPTER_MODE.AUTO))) return false;
-      return window.electronAPI.mavlinkArmDisarm(true, false);
+      return startUploadedMission();
     });
 
   return (

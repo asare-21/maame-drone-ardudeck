@@ -14,6 +14,7 @@ import { PreArmParamFix } from './PreArmParamFix';
 import { SafetyConfigCard } from './SafetyConfigCard';
 import { MaameSafetyCard } from '../../maame/MaameSafetyCard';
 import { MaameFlightCard } from '../../maame/MaameFlightCard';
+import { MaameHoverTestCard } from '../../maame/MaameHoverTestCard';
 import { PanelContainer } from '../panels/panel-utils';
 
 export function PreflightCheckCard() {
@@ -113,6 +114,7 @@ export function PreflightCheckCard() {
         <div className="px-3 pt-2 space-y-2">
           <MaameSafetyCard />
           <MaameFlightCard />
+          <MaameHoverTestCard />
         </div>
         <div className="px-3 pt-2 empty:hidden">
           <SafetyConfigCard />
