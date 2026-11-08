@@ -28,6 +28,8 @@ jobs:
           sudo apt-get install -y libudev-dev libusb-1.0-0-dev
       - name: Install dependencies
         run: pnpm install
+      - name: Build workspace packages
+        run: pnpm --filter "./packages/**" build
       - name: Typecheck
         run: pnpm --filter @ardudeck/desktop typecheck
       - name: Maame tests
