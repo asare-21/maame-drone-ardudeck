@@ -50,6 +50,7 @@ export function MaameCompanionCard() {
         ['Wi-Fi signal', ...wifi(v.PI_WIFI)],
         ['MAVLink router', v.PI_ROUTER === 1 ? 'running' : 'NOT running', v.PI_ROUTER === 1 ? 'ok' : 'bad'],
         ['Power', ...power(piThrottled)],
+        ...(v.PI_CAM === undefined ? [] : [['Camera stream', v.PI_CAM === 1 ? 'running (rtsp://maame.local:8554/cam)' : 'off', v.PI_CAM === 1 ? 'ok' : 'off'] as [string, string, Tone]]),
       ]
     : [];
 
