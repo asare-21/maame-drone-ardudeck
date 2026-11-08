@@ -27,6 +27,8 @@ export interface MissionCheckInput {
   param: (name: string) => number | null;
   /** Horizontal fence verdict for a point (circle + polygons), null when inside. */
   outsideFence: (lat: number, lon: number) => string | null;
+  /** Hover current measured by the hover test (A); the estimate is used until there is one. */
+  hoverCurrentA?: number | null;
 }
 
 export interface MissionCheck {
@@ -36,6 +38,8 @@ export interface MissionCheck {
   minutes: number;
   /** Estimated share of the pack the flight uses (0-1). */
   packUse: number;
+  /** True when the battery figure comes from a measured hover current. */
+  measured?: boolean;
 }
 
 function metres(aLat: number, aLon: number, bLat: number, bLon: number): number {
@@ -44,7 +48,7 @@ function metres(aLat: number, aLon: number, bLat: number, bLon: number): number 
   return 2 * 6_371_000 * Math.asin(Math.sqrt(h));
 }
 
-export function checkMission({ items, home, param, outsideFence }: MissionCheckInput): MissionCheck {
+export function checkMission({ items, home, param, outsideFence, hoverCurrentA }: MissionCheckInput): MissionCheck {
   if (!home || (!home.lat && !home.lon)) return { ok: false, problems: ['no home position yet (needs GPS)'], minutes: 0, packUse: 0 };
   const problems: string[] = [];
   const altMax = param('FENCE_ENABLE') === 1 && (param('FENCE_TYPE') ?? 0) & 1 ? param('FENCE_ALT_MAX') : null;
@@ -84,10 +88,11 @@ export function checkMission({ items, home, param, outsideFence }: MissionCheckI
   });
   if (!endsLanded) fly(home.lat, home.lon, 0); // the failsafe brings it home anyway
 
-  const mah = (seconds / 3600) * HOVER_CURRENT_A * 1000 * 1.15; // +15% for forward flight and wind
+  const measured = !!hoverCurrentA && hoverCurrentA > 0;
+  const mah = (seconds / 3600) * (measured ? hoverCurrentA! : HOVER_CURRENT_A) * 1000 * 1.15; // +15% for forward flight and wind
   const packUse = mah / (param('BATT_CAPACITY') || MAAME_PACK_MAH);
   if (packUse > USABLE_FRACTION) {
     problems.push(`needs about ${Math.round(packUse * 100)}% of the battery (limit ${USABLE_FRACTION * 100}%)`);
   }
-  return { ok: problems.length === 0, problems, minutes: seconds / 60, packUse };
+  return { ok: problems.length === 0, problems, minutes: seconds / 60, packUse, measured };
 }

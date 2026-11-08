@@ -7,6 +7,28 @@ import { MAV_CMD, MAV_FRAME, type MissionItem } from '../../shared/mission-types
 import { buildArduPilotWireMission } from '../../shared/mission-wire';
 
 export const HOVER_HEIGHTS_M = [0.5, 1] as const;
+
+const HOVER_CURRENT_KEY = 'maame.hoverCurrentA';
+
+/** Hover current measured by the last hover test on this laptop (A), or null. */
+export function loadHoverCurrent(): number | null {
+  try {
+    const v = Number(localStorage.getItem(HOVER_CURRENT_KEY));
+    return v > 0 && v < 200 ? v : null;
+  } catch {
+    return null;
+  }
+}
+
+export function saveHoverCurrent(amps: number): void {
+  try { localStorage.setItem(HOVER_CURRENT_KEY, String(Math.round(amps * 10) / 10)); } catch { /* estimate stays in use */ }
+}
+
+/** Average of current samples (A) taken in the air; null when too few to trust. */
+export function averageHoverCurrent(samples: number[]): number | null {
+  const ok = samples.filter((a) => Number.isFinite(a) && a > 0);
+  return ok.length >= 10 ? ok.reduce((s, a) => s + a, 0) / ok.length : null;
+}
 export const HOVER_HOLD_S = { min: 5, max: 10 } as const;
 
 export interface HoverTestPlan {

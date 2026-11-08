@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { MAV_CMD } from '../../shared/mission-types';
-import { hoverTestMission, hoverTestProblem } from './hover-test';
+import { averageHoverCurrent, hoverTestMission, hoverTestProblem } from './hover-test';
 
 const plan = { heightM: 1, holdS: 8, lat: 51.65, lon: -0.08 };
 
@@ -21,5 +21,9 @@ describe('Maame hover test mission', () => {
     expect(hoverTestProblem({ ...plan, holdS: 11 })).toMatch(/hover time/);
     expect(hoverTestProblem({ ...plan, lat: 0, lon: 0 })).toMatch(/GPS/);
     expect(() => hoverTestMission({ ...plan, heightM: 3 })).toThrow();
+  });
+  it('averages hover current only from enough in-air samples', () => {
+    expect(averageHoverCurrent([20, 22, 24, 0, NaN, 21, 23, 22, 20, 24, 22, 23])).toBeCloseTo(22.1, 1);
+    expect(averageHoverCurrent([20, 22])).toBeNull();
   });
 });

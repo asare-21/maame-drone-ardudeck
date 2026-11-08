@@ -9,6 +9,7 @@ import { useMissionStore } from '../stores/mission-store';
 import { useParameterStore } from '../stores/parameter-store';
 import { fenceWarningForPoint } from '../utils/fence-check';
 import { checkMission } from './mission-check';
+import { loadHoverCurrent } from './hover-test';
 import { useTelemetryStore } from '../stores/telemetry-store';
 import { freshPiHealth, useMaameCompanion } from './companion-store';
 import { useMaameBaselineResults } from './MaameSafetyCard';
@@ -65,7 +66,7 @@ export function MaameFlightCard() {
   const homePosition = useMissionStore((s) => s.homePosition);
   const home = homePosition ?? (gps?.lat ? { lat: gps.lat, lon: gps.lon } : null);
   const missionCheck = missionItems.length
-    ? checkMission({ items: missionItems, home, param: fcParam, outsideFence: fenceWarningForPoint })
+    ? checkMission({ items: missionItems, home, param: fcParam, outsideFence: fenceWarningForPoint, hoverCurrentA: loadHoverCurrent() })
     : null;
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);

@@ -10,7 +10,7 @@ import { useTelemetryStore } from '../stores/telemetry-store';
 import { freshPiHealth, useMaameCompanion } from './companion-store';
 import { useMaameBaselineResults } from './MaameSafetyCard';
 import { startUploadedMission, useFcParam } from './MaameFlightCard';
-import { HOVER_HEIGHTS_M, HOVER_HOLD_S, hoverTestMission, hoverTestProblem } from './hover-test';
+import { HOVER_HEIGHTS_M, HOVER_HOLD_S, averageHoverCurrent, hoverTestMission, hoverTestProblem, saveHoverCurrent } from './hover-test';
 import { MAV_STATE_ACTIVE, readyChecks } from './ready-checks';
 import { peakVibe, vibrationVerdict, type Vibe } from './vibration';
 import { useMaameLinkProblem, useMaameLinkUp } from './maame-profile';
@@ -48,6 +48,22 @@ export function MaameHoverTestCard() {
     if (armed && vib) setPeak((p) => peakVibe(p, vib));
   }, [armed, vib]);
   const vibVerdict = peak ? vibrationVerdict(peak, takeoffVib.current) : null;
+  // Hover current: sampled while in the air; saved after landing for the battery estimates.
+  const current = useTelemetryStore((s) => s.battery.current);
+  const altM = useTelemetryStore((s) => s.position?.relativeAlt ?? 0);
+  const ampSamples = useRef<number[]>([]);
+  const [hoverAmps, setHoverAmps] = useState<number | null>(null);
+  const ampArmed = useRef(false);
+  useEffect(() => {
+    if (armed && !ampArmed.current) ampSamples.current = []; // new flight
+    ampArmed.current = armed;
+    if (armed && altM > 0.5) ampSamples.current.push(current);
+  }, [armed, current, altM]);
+  useEffect(() => {
+    if (armed) return;
+    const avg = averageHoverCurrent(ampSamples.current);
+    if (avg !== null) { saveHoverCurrent(avg); setHoverAmps(avg); ampSamples.current = []; }
+  }, [armed]);
   const vibTone = { good: 'text-green-400', marginal: 'text-amber-400', bad: 'text-red-400' };
 
   // The test brings its own mission, so the planned-mission checks do not apply.
@@ -142,6 +158,9 @@ export function MaameHoverTestCard() {
         <p className="mt-1 text-xs text-gray-400">
           To tune from this hover, turn on vibration logging first: Setup &gt; Quick Setup &gt; Motor vibration filter (step 1).
         </p>
+      )}
+      {hoverAmps !== null && !armed && (
+        <p className="mt-1 text-xs text-green-400">Hover current {hoverAmps.toFixed(1)} A: saved, battery estimates now use it.</p>
       )}
       {vibVerdict && (
         <div className="mt-2 text-xs">

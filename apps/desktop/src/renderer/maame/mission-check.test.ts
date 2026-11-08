@@ -42,4 +42,11 @@ describe('Maame mission check', () => {
   it('needs a home position', () => {
     expect(run({ home: null }).problems).toEqual(['no home position yet (needs GPS)']);
   });
+  it('uses the measured hover current when there is one', () => {
+    const est = run();
+    const meas = run({ hoverCurrentA: 50 });
+    expect(est.measured).toBe(false);
+    expect(meas.measured).toBe(true);
+    expect(meas.packUse / est.packUse).toBeCloseTo(2, 5); // 50 A vs the 25 A estimate
+  });
 });

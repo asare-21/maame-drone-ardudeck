@@ -123,7 +123,7 @@ export function readyChecks(i: ReadyInput): ReadyCheck[] {
       detail: !mc
         ? 'no mission planned'
         : mc.ok
-          ? `inside the fence, about ${mc.minutes.toFixed(1)} min, ${Math.round(mc.packUse * 100)}% of the battery`
+          ? `inside the fence, about ${mc.minutes.toFixed(1)} min, ${Math.round(mc.packUse * 100)}% of the battery${mc.measured ? '' : ' (estimated hover current)'}`
           : mc.problems.join('; '),
     },
   ];
