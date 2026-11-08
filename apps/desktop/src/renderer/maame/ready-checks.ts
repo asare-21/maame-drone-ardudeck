@@ -15,6 +15,8 @@ export const PREARM_WINDOW_MS = 35_000;
 /** Pi heartbeat older than this counts as offline. */
 export const PI_TIMEOUT_MS = 3000;
 export const MAV_STATE_ACTIVE = 4;
+/** SiK fade margin (signal - noise, both ends) below which the backup link is near drop-out at range. */
+export const SIK_MIN_MARGIN = 10;
 /** The Pi throttles itself at 80 C; a hot or browning-out Pi can drop the gate heartbeat in flight. */
 export const PI_MAX_TEMP_C = 80;
 const THROTTLE_UNDERVOLTAGE_NOW = 0x1;
@@ -48,10 +50,12 @@ export interface ReadyInput {
   uploadedItems: number | null;
   /** Fence/endurance verdict on the planned mission, null when nothing is planned. */
   missionCheck: MissionCheck | null;
+  /** Only when a SiK radio is part of the Maame connection. */
+  sik?: { alive: boolean; rssi: number; noise: number; remRssi: number; remNoise: number } | null;
 }
 
 export interface ReadyCheck {
-  id: 'link' | 'baseline' | 'gps' | 'battery' | 'pi' | 'prearm' | 'mission' | 'missionSafe';
+  id: 'link' | 'radio' | 'baseline' | 'gps' | 'battery' | 'pi' | 'prearm' | 'mission' | 'missionSafe';
   label: string;
   ok: boolean;
   detail: string;
@@ -64,6 +68,19 @@ export function blockingPrearm(messages: ReadyInput['messages'], nowMs: number):
     .map((m) => m.text.replace(/^PreArm:\s*/, ''))
     .filter((t) => !/Pi companion not ready/i.test(t));
   return [...new Set(texts)];
+}
+
+/** SiK radio check, or null when no SiK is in use. */
+export function sikCheck(sik: ReadyInput['sik']): ReadyCheck | null {
+  if (!sik) return null;
+  const margin = Math.min(sik.rssi - sik.noise, sik.remRssi - sik.remNoise);
+  const ok = sik.alive && margin >= SIK_MIN_MARGIN;
+  return {
+    id: 'radio',
+    label: 'SiK radio',
+    ok,
+    detail: !sik.alive ? 'no data from the radio link' : `fade margin ${margin} (need ${SIK_MIN_MARGIN}): local ${sik.rssi - sik.noise}, drone ${sik.remRssi - sik.remNoise}`,
+  };
 }
 
 export function readyChecks(i: ReadyInput): ReadyCheck[] {
@@ -80,6 +97,7 @@ export function readyChecks(i: ReadyInput): ReadyCheck[] {
       ok: i.connected && !i.linkProblem,
       detail: !i.connected ? 'use "Connect to Maame" (a multi-vehicle/fleet link is not enough)' : i.linkProblem ?? 'connected (Maame link)',
     },
+    ...(sikCheck(i.sik) ? [sikCheck(i.sik)!] : []),
     {
       id: 'baseline',
       label: 'Safety baseline',

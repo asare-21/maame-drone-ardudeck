@@ -6,6 +6,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useMessagesStore } from '../stores/messages-store';
 import { useMissionStore } from '../stores/mission-store';
+import { useConnectionStore } from '../stores/connection-store';
 import { useTelemetryStore } from '../stores/telemetry-store';
 import { freshPiHealth, useMaameCompanion } from './companion-store';
 import { useMaameBaselineResults } from './MaameSafetyCard';
@@ -30,6 +31,10 @@ export function MaameHoverTestCard() {
 
   const connected = useMaameLinkUp();
   const linkProblem = useMaameLinkProblem();
+  const maameLinks = useConnectionStore((s) => s.connectionState.maameLinks);
+  const radio = useTelemetryStore((s) => s.radioStatus);
+  const sikLink = maameLinks?.find((l) => l.name === 'SiK');
+  const sik = sikLink ? { alive: sikLink.alive && !!radio, rssi: radio?.rssi ?? 0, noise: radio?.noise ?? 0, remRssi: radio?.remRssi ?? 0, remNoise: radio?.remNoise ?? 0 } : null;
   const gps = useTelemetryStore((s) => s.gps);
   const battery = useTelemetryStore((s) => s.battery);
   const armed = useTelemetryStore((s) => s.flight.armed);
@@ -69,6 +74,7 @@ export function MaameHoverTestCard() {
   // The test brings its own mission, so the planned-mission checks do not apply.
   const checks = readyChecks({
     nowMs, connected, linkProblem,
+    sik,
     baselineFailures: baseline.filter((r) => !r.ok).length,
     gpsFixType: gps?.fixType ?? 0, gpsSats: gps?.satellites ?? 0,
     batteryVoltage: battery?.voltage ?? 0, armVoltage: fcParam('BATT_ARM_VOLT'),

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { blockingPrearm, piHealthProblem, readyChecks, type ReadyInput } from './ready-checks';
+import { blockingPrearm, piHealthProblem, readyChecks, sikCheck, type ReadyInput } from './ready-checks';
 
 const NOW = 100_000;
 const good: ReadyInput = {
@@ -63,5 +63,14 @@ describe('readyChecks', () => {
   it('blocks launch over a link that needs signing (4G) while signing is off', () => {
     const r = readyChecks({ ...good, linkProblem: '4G link without signing: turn signing on first' });
     expect(r.find((c) => c.id === 'link')).toMatchObject({ ok: false, detail: '4G link without signing: turn signing on first' });
+  });
+
+  it('checks the SiK fade margin at both ends only when a SiK radio is in use', () => {
+    expect(readyChecks(good).some((c) => c.id === 'radio')).toBe(false);
+    const sik = { alive: true, rssi: 146, noise: 40, remRssi: 147, remNoise: 42 };
+    expect(sikCheck(sik)).toMatchObject({ ok: true, detail: 'fade margin 105 (need 10): local 106, drone 105' });
+    expect(sikCheck({ ...sik, remRssi: 50 })?.ok).toBe(false);
+    expect(sikCheck({ ...sik, alive: false })).toMatchObject({ ok: false, detail: 'no data from the radio link' });
+    expect(failing({ ...good, sik: { ...sik, alive: false } })).toEqual(['radio']);
   });
 });

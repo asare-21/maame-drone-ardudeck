@@ -10,6 +10,7 @@ import { useParameterStore } from '../stores/parameter-store';
 import { fenceWarningForPoint } from '../utils/fence-check';
 import { checkMission } from './mission-check';
 import { loadHoverCurrent } from './hover-test';
+import { useConnectionStore } from '../stores/connection-store';
 import { useTelemetryStore } from '../stores/telemetry-store';
 import { freshPiHealth, useMaameCompanion } from './companion-store';
 import { useMaameBaselineResults } from './MaameSafetyCard';
@@ -52,6 +53,10 @@ export function MaameFlightCard() {
 
   const connected = useMaameLinkUp();
   const linkProblem = useMaameLinkProblem();
+  const maameLinks = useConnectionStore((s) => s.connectionState.maameLinks);
+  const radio = useTelemetryStore((s) => s.radioStatus);
+  const sikLink = maameLinks?.find((l) => l.name === 'SiK');
+  const sik = sikLink ? { alive: sikLink.alive && !!radio, rssi: radio?.rssi ?? 0, noise: radio?.noise ?? 0, remRssi: radio?.remRssi ?? 0, remNoise: radio?.remNoise ?? 0 } : null;
   const gps = useTelemetryStore((s) => s.gps);
   const battery = useTelemetryStore((s) => s.battery);
   const armed = useTelemetryStore((s) => s.flight.armed);
@@ -75,6 +80,7 @@ export function MaameFlightCard() {
     nowMs,
     connected,
     linkProblem,
+    sik,
     baselineFailures: baseline.filter((r) => !r.ok).length,
     gpsFixType: gps?.fixType ?? 0,
     gpsSats: gps?.satellites ?? 0,
