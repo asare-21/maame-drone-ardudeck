@@ -1,0 +1,38 @@
+name: Maame
+
+# The Maame layer on the maame branch (upstream ci.yml only runs on main/master).
+# The SITL flight tests live in maame-autonomous-drone (sitl/run_tests.py) and need the
+# ArduCopter SITL binary, so they run locally, not here.
+on:
+  push:
+    branches: [maame]
+  pull_request:
+    branches: [maame]
+
+env:
+  NODE_VERSION: '20'
+
+jobs:
+  maame:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+      - name: Install Linux dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libudev-dev libusb-1.0-0-dev
+      - name: Install dependencies
+        run: pnpm install
+      - name: Typecheck
+        run: pnpm --filter @ardudeck/desktop typecheck
+      - name: Maame tests
+        working-directory: apps/desktop
+        run: npx vitest run src/renderer/maame src/main/maame src/shared/maame-brand.test.ts src/shared/maame-gate.test.ts
+      - name: Link tests (UDP uplink metering)
+        working-directory: packages/comms
+        run: npx vitest run
