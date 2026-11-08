@@ -1,5 +1,6 @@
 // Never call t() at module top level: the value freezes in the language active at import.
 import i18next, { type i18n as I18n, type Resource } from 'i18next';
+import { maameBrandPostProcessor } from '../maame-brand';
 
 export const DEFAULT_LANGUAGE = 'en';
 
@@ -62,8 +63,10 @@ export function resolveLanguage(preference: LanguagePreference | undefined, syst
 }
 
 export const i18n: I18n = i18next.createInstance();
+i18n.use(maameBrandPostProcessor);
 
 void i18n.init({
+  postProcess: ['maameBrand'],
   resources,
   lng: DEFAULT_LANGUAGE,
   fallbackLng: DEFAULT_LANGUAGE,

@@ -24,6 +24,13 @@ export const CAMERA_PRESETS: LocalizedCameraPreset[] = [
     noteKey: 'camera:presets.mavlink.note',
   },
   {
+    id: 'maame-pi',
+    label: 'Maame Pi camera (Wi-Fi)', // i18n-exempt: product name
+    kind: 'rtsp',
+    url: 'rtsp://maame.local:8554/cam', // companion/camera/mediamtx.yml in maame-autonomous-drone
+    hfovDeg: 102, // Camera Module 3 Wide
+  },
+  {
     id: 'siyi-a8',
     label: 'SIYI A8 mini / ZR10 / ZR30', // i18n-exempt: fallback when no labelKey; brand names
     labelKey: 'camera:presets.siyiA8.label',

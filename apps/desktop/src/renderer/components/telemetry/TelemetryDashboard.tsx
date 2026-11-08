@@ -50,6 +50,7 @@ import {
   NtripPanel,
   CameraPanel,
   PreflightCheckCard,
+  MaameCockpitPanel,
   // Mission panels (for monitoring during flight) - MissionMapPanel removed (merged into MapPanel)
   WaypointTablePanel,
   AltitudeProfilePanel,
@@ -236,6 +237,7 @@ const components: Record<string, React.FC<IDockviewPanelProps>> = {
   JoystickPanel: () => <PanelWrapper component={JoystickPanel} />,
   NtripPanel: () => <PanelWrapper component={NtripPanel} />,
   PreflightCheckCard: () => <PanelWrapper component={PreflightCheckCard} />,
+  MaameCockpitPanel: () => <PanelWrapper component={MaameCockpitPanel} />,
   // Mission panels (for monitoring during flight) - readOnly mode
   // Note: MissionMapPanel removed - mission data now integrated into MapPanel
   WaypointTablePanel: () => <WaypointTablePanel readOnly />,
@@ -579,6 +581,7 @@ const PANEL_ICONS: Record<string, ReactNode> = {
   safetyMonitor: svg(<><path d="M12 3l7 3v6c0 4-3 7-7 9-4-2-7-5-7-9V6z" /><path d="M9 12l2 2 4-4" /></>),
   rtk: svg(<><path d="M5 12a7 7 0 017-7" /><path d="M5 16a11 11 0 0111-11" /><circle cx="6" cy="18" r="2" fill="currentColor" stroke="none" /></>),
   preflightCheck: svg(<><rect x="5" y="4" width="14" height="17" rx="2" /><path d="M9 4h6v3H9z" /><path d="M9 13l2 2 4-4" /></>),
+  maameCockpit: svg(<><circle cx="8" cy="15" r="3" /><circle cx="16" cy="15" r="3" /><path d="M4 9h16" /><path d="M12 9V5" /></>),
   waypoints: svg(<><circle cx="6" cy="18" r="2" /><circle cx="18" cy="6" r="2" /><path d="M8 16.5C10.5 13 13.5 10 16 7.5" /></>),
   altitudeProfile: svg(<><path d="M4 5v14h16" /><path d="M4 15l4-4 4 3 8-8" /></>),
   sitlEnvironment: svg(<><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z" /><path d="M12 12l8-4.5M12 12v9M12 12L4 7.5" /></>),
@@ -827,7 +830,7 @@ function WorkspaceDialog(props: WorkspaceProps & { onClose: () => void }): JSX.E
 const MISSION_PANEL_IDS = ['waypoints', 'altitudeProfile'];
 
 // MAVLink-only panel IDs (STATUSTEXT doesn't exist in MSP)
-const MAVLINK_PANEL_IDS = ['messages', 'preflightCheck', 'safetyMonitor', 'rtk', 'joystick'];
+const MAVLINK_PANEL_IDS = ['messages', 'preflightCheck', 'safetyMonitor', 'rtk', 'joystick', 'maameCockpit'];
 
 // SITL-only panel IDs (only shown when ArduPilot SITL is running)
 const SITL_PANEL_IDS = ['sitlEnvironment', 'sitlFailures'];

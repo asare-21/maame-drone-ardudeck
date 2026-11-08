@@ -3,6 +3,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { DraftNumberInput } from '../../hooks/useNumericDraft';
 import { useConnectionStore } from '../../stores/connection-store';
+import { MaameConnectCard } from '../../maame/MaameConnectCard';
 import { useTelemetryStore } from '../../stores/telemetry-store';
 import { useSettingsStore, type DefaultSitlType } from '../../stores/settings-store';
 import { useSitlStore } from '../../stores/sitl-store';
@@ -704,6 +705,7 @@ export function ConnectionPanel() {
         {connectionTab === 'multi' && <MultiVehiclePanel />}
 
         {connectionTab === 'single' && <>
+        {!primaryLinkUp && !connectionState.isWaitingForHeartbeat && <MaameConnectCard />}
         {/* SITL Quick Start - only show when not connected */}
         {!primaryLinkUp && !connectionState.isWaitingForHeartbeat && (
           <div className="space-y-0">

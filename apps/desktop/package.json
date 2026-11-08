@@ -108,7 +108,7 @@
   },
   "build": {
     "appId": "com.ardudeck.desktop",
-    "productName": "ArduDeck",
+    "productName": "MaameDrone-ArduDeck",
     "protocols": [
       {
         "name": "ArduDeck",

@@ -5,7 +5,7 @@
 
 import { ipcMain, BrowserWindow, dialog, app, shell, safeStorage, session, ShareMenu, webContents as allWebContents, type WebContents } from 'electron';
 import { join, dirname, basename } from 'path';
-import { existsSync, readFileSync, statSync } from 'fs';
+import { existsSync, mkdirSync, readFileSync, statSync } from 'fs';
 import { execFile as execFileCb } from 'node:child_process';
 import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
@@ -67,6 +67,9 @@ import {
   serializeParamSet,
   serializeCommandLong,
   serializeCommandAck,
+  serializeSetPositionTargetLocalNed,
+  SET_POSITION_TARGET_LOCAL_NED_ID,
+  SET_POSITION_TARGET_LOCAL_NED_CRC_EXTRA,
   serializeMissionRequestList,
   serializeMissionRequest,
   serializeMissionRequestInt,
@@ -192,6 +195,18 @@ import { getScriptBundle } from './script-installer/bundle.js';
 import * as installerService from './script-installer/installer-service.js';
 import { installScript, setScriptInstallAdapter } from './script-installer/install-script.js';
 import sonarLuaSource from './lua-scripts/ardudeck_sonar.lua?raw';
+import maameGateLuaSource from './lua-scripts/maame_pi_gate.lua?raw';
+import { MAAME_GATE_FILENAME, MAAME_GATE_PARAM } from '../shared/maame-gate.js';
+import { maameTlog } from './maame/tlog.js';
+import { cockpitRefusal, positionTarget, turnCommand, type CockpitMove } from './maame/cockpit.js';
+
+/** FC flight mode from its latest heartbeat (Maame cockpit only moves the drone in GUIDED). */
+let maameFcMode: number | null = null;
+
+/** Per-connection Maame telemetry logs. */
+function maameFlightLogDir(): string {
+  return join(app.getPath('documents'), 'MaameDrone', 'flight-logs');
+}
 import type { FcAdapter } from './script-installer/installer-service.js';
 import type { PreflightFix } from '../shared/script-installer-types.js';
 import {
@@ -462,6 +477,7 @@ const signingStore = new Store<{
 import type { ParamChange, ParamCheckpoint, BoardParamHistory } from '../shared/param-history-types.js';
 import { areasToKml, type ExportArea } from '../shared/kml-export.js';
 import { evaluateLinkLiveness, LINK_STALE_MS, LINK_DEAD_MS } from './link-liveness.js';
+import { RedundantTransport, type LinkChange } from './maame/redundant-transport.js';
 import { installTerrainUplink, terrainUplink } from './terrain/terrain-uplink.js';
 const paramHistoryStore = new Store<{ boards: Record<string, BoardParamHistory> }>({
   name: 'param-history',
@@ -1877,6 +1893,7 @@ function buildBackgroundTransport(options: ConnectOptions): Transport {
           localPort: options.udpClientLocalPort ?? 14550,
           remoteHost: options.udpRemoteHost,
           remotePort: options.udpRemotePort,
+          wideUplink: options.udpWideUplink,
         });
       }
       return new UdpTransport({ localPort: options.udpPort ?? 14550 });
@@ -3282,6 +3299,7 @@ function parseTelemetry(mainWindow: BrowserWindow, packet: MAVLinkPacket): void 
           online: true,
           lastSeen: Date.now(),
           systemType: `type-${vehicleType}`,
+          systemStatus: payload[7], // MAV_STATE: Maame Pi is ACTIVE (4) once ready
         });
       }
 
@@ -3290,6 +3308,7 @@ function parseTelemetry(mainWindow: BrowserWindow, packet: MAVLinkPacket): void 
       if (connectionState.componentId != null && packet.compid !== connectionState.componentId) break;
 
       currentVehicleType = vehicleType;
+      maameFcMode = customMode;
       const systemStatus = payload[7]!; // MAV_STATE
       const armedFlag = (baseMode & 0x80) !== 0; // MAV_MODE_FLAG_SAFETY_ARMED
       // Reject the armed flag only during the truly transient boot states
@@ -3786,6 +3805,8 @@ function parseTelemetry(mainWindow: BrowserWindow, packet: MAVLinkPacket): void 
           sendLog(mainWindow, 'info', `NAMED_VALUE_FLOAT received: name="${name}" value=${value}`);
         }
         ingestNamedValueFloat(name, value);
+        // Maame Pi health (PI_TEMP, PI_THROT, ...) for the companion card
+        if (packet.compid === 191) safeSend(mainWindow, IPC_CHANNELS.MAAME_COMPANION_VALUE, { name, value });
       } catch (err) {
         sendLog(mainWindow, 'warn', `NAMED_VALUE_FLOAT parse failed: ${err instanceof Error ? err.message : err}`);
       }
@@ -5157,6 +5178,7 @@ export function setupIpcHandlers(mainWindow: BrowserWindow): void {
     try {
       switch (cmd.kind) {
         case 'arm':
+          if (refuseMaameForceArm(true, cmd.force)) return false;
           return await sendCommandLongToVehicle(vehicleKey, 400, { param1: 1, param2: cmd.force ? 21196 : 0 });
         case 'disarm':
           return await sendCommandLongToVehicle(vehicleKey, 400, { param1: 0, param2: cmd.force ? 21196 : 0 });
@@ -5580,10 +5602,15 @@ export function setupIpcHandlers(mainWindow: BrowserWindow): void {
           for await (const packet of mavlinkParser.parse(chunk)) {
             connectionState.packetsReceived++;
             noteVehicleTraffic();
+            if (currentTransport instanceof RedundantTransport) maameTlog.record(packet.buffer);
 
             // Detect signed incoming packets from FC. Only a CRC-checked packet counts: an
             // unknown msgid is unverified bytes, and its signed bit proves nothing.
-            if (packet.isSigned && packet.crcValidated && !connectionState.fcSigning) {
+            // Only the autopilot's own packets count: a signing companion (Maame Pi, comp 191)
+            // on the same link is not the FC, and judging keys by its frames misleads.
+            const fromAutopilot = packet.compid === (connectionState.componentId ?? 1)
+              && (connectionState.systemId == null || packet.sysid === connectionState.systemId);
+            if (packet.isSigned && packet.crcValidated && fromAutopilot && !connectionState.fcSigning) {
               connectionState.fcSigning = true;
               sendLog(mainWindow, 'info', 'FC is sending signed packets - MAVLink signing is active on the vehicle');
 
@@ -5729,6 +5756,8 @@ export function setupIpcHandlers(mainWindow: BrowserWindow): void {
               // These send their own heartbeats but don't represent the actual vehicle
               if (!isVehicleHeartbeat(vehicleType, autopilotType, packet.compid)) {
                 sendLog(mainWindow, 'debug', `Ignoring heartbeat from non-vehicle component: ${VEHICLE_NAMES[vehicleType] || vehicleType} (sysid=${packet.sysid}, compid=${packet.compid})`);
+                // The companion (Maame Pi) heartbeat is reported from parseTelemetry; skipping it here hid the Pi.
+                if (packet.compid === 191) parseTelemetry(mainWindow, packet);
                 continue;
               }
 
@@ -6632,6 +6661,33 @@ export function setupIpcHandlers(mainWindow: BrowserWindow): void {
             transportName = `UDP :${options.udpPort ?? 14550}`;
           }
           break;
+        case 'maame': {
+          // One drone over several links with failover (main/maame/redundant-transport.ts).
+          const links = (options.maameLinks ?? []).map((l) => ({ name: l.name, transport: buildBackgroundTransport(l.options) }));
+          const maame = new RedundantTransport(links);
+          // Telemetry log of the whole connection: frames sent here, frames received in the parse loop.
+          const tlogPath = maameTlog.start(maameFlightLogDir());
+          maame.onWrite = (frame) => maameTlog.record(frame);
+          maame.on('close', () => void maameTlog.stop());
+          sendLog(mainWindow, 'info', 'Maame flight log recording', tlogPath);
+          maame.on('linkchange', (c: LinkChange) => {
+            sendLog(mainWindow, 'warn', `Maame link switched: ${c.from} -> ${c.to}`, c.reason);
+            // ArduPilot only streams telemetry to a link that asked for it
+            void sendStreamRateRequests(mainWindow, currentTelemetrySpeed);
+          });
+          maame.on('linkerror', (e: { name: string; error: unknown }) => {
+            sendLog(mainWindow, 'warn', `Maame ${e.name} link error`, e.error instanceof Error ? e.error.message : String(e.error));
+          });
+          // header link badge (renderer/maame/MaameLinkBadge.tsx)
+          maame.on('status', (links: NonNullable<ConnectionState['maameLinks']>) => {
+            if (currentTransport !== maame) return;
+            connectionState.maameLinks = links;
+            sendConnectionState(mainWindow);
+          });
+          currentTransport = maame;
+          transportName = `Maame ${maame.portName}`;
+          break;
+        }
         default:
           throw new Error(`Invalid connection type: ${options.type ?? 'undefined'}. Must be 'serial', 'tcp', or 'udp'.`);
       }
@@ -6948,7 +7004,8 @@ export function setupIpcHandlers(mainWindow: BrowserWindow): void {
       // heartbeat arrives, the handler at sendGcsHeartbeat clears
       // gcsHeartbeatInterval and reinstalls its own (with sysid/compid
       // captured from the FC) — same variable, seamless handover.
-      if (options.type === 'udp' && options.udpMode === 'client') {
+      // Maame: the Pi's mavlink-router is a UDP server too and stays silent until it hears from us.
+      if ((options.type === 'udp' && options.udpMode === 'client') || options.type === 'maame') {
         const sendEarlyGcsHeartbeat = () => {
           if (!currentTransport?.isOpen) return;
           try {
@@ -8677,6 +8734,7 @@ export function setupIpcHandlers(mainWindow: BrowserWindow): void {
 
   // ARM / DISARM via MAV_CMD_COMPONENT_ARM_DISARM (command 400)
   ipcMain.handle(IPC_CHANNELS.MAVLINK_ARM_DISARM, async (_, arm: boolean, force?: boolean): Promise<boolean> => {
+    if (refuseMaameForceArm(arm, force)) return false;
     const target = activeFlightTarget();
     if (!target) {
       // Don't fail silently — this reads as a dead button otherwise.
@@ -9213,6 +9271,40 @@ export function setupIpcHandlers(mainWindow: BrowserWindow): void {
       sendLog(mainWindow, 'error', 'Failed to send LAND command', message);
       return false;
     }
+  });
+
+  /**
+   * Maame flies with no RC: force-arming would skip the Pi arming gate, GPS and
+   * fence checks with nobody able to take over. Refuse it on Maame connections.
+   * Force-DISARM stays allowed (the emergency motor kill relies on it).
+   */
+  function refuseMaameForceArm(arm: boolean, force?: boolean): boolean {
+    if (!arm || !force || !(currentTransport instanceof RedundantTransport)) return false;
+    emitStatusText(mainWindow, 4, 'Force arm is disabled for Maame (no RC): fix the pre-arm failures instead');
+    sendLog(mainWindow, 'warn', 'Force ARM refused on a Maame connection');
+    return true;
+  }
+
+  // Maame: Pi companion ready/standby. MAV_CMD_USER_2 to comp 191 (companion/startup-files/maame_ready.py);
+  // the Pi answers with its heartbeat status and a STATUSTEXT.
+  ipcMain.handle(IPC_CHANNELS.MAAME_COMPANION_SET_READY, async (_, ready: boolean): Promise<boolean> => {
+    const target = activeFlightTarget();
+    if (!target) {
+      sendLog(mainWindow, 'warn', 'Maame Pi ready request skipped: no active vehicle');
+      return false;
+    }
+    const payload = serializeCommandLong({
+      targetSystem: target.sysid,
+      targetComponent: 191,
+      command: 31011,
+      confirmation: 0,
+      param1: ready ? 1 : 0,
+      param2: 0, param3: 0, param4: 0, param5: 0, param6: 0, param7: 0,
+    });
+    const packet = await sendMavlinkPacket(COMMAND_LONG_ID, payload, COMMAND_LONG_CRC_EXTRA, { link: target.transport });
+    await target.transport.write(packet);
+    connectionState.packetsSent++;
+    return true;
   });
 
   // MAV_CMD_USER_1..5 via COMMAND_INT - dispatches to FC-side Lua script handlers.
@@ -11935,6 +12027,52 @@ export function setupIpcHandlers(mainWindow: BrowserWindow): void {
       safe,
     );
   });
+
+  // Maame cockpit: manual flying from the app (GUIDED targets relative to the heading).
+  ipcMain.handle(IPC_CHANNELS.MAAME_COCKPIT_MOVE, async (_, move: CockpitMove): Promise<{ ok: boolean; error?: string }> => {
+    const target = activeFlightTarget();
+    const refusal = cockpitRefusal({
+      maameLink: currentTransport instanceof RedundantTransport && !!target,
+      armed: lastReportedArmed,
+      customMode: maameFcMode,
+    });
+    if (refusal || !target) return { ok: false, error: refusal ?? 'no vehicle' };
+    try {
+      let packet: Uint8Array;
+      if (move.kind === 'turn') {
+        const { command, params } = turnCommand(move.degrees);
+        packet = await sendMavlinkPacket(COMMAND_LONG_ID, serializeCommandLong({
+          targetSystem: target.sysid, targetComponent: 1, command, confirmation: 0,
+          param1: params[0], param2: params[1], param3: params[2], param4: params[3], param5: 0, param6: 0, param7: 0,
+        }), COMMAND_LONG_CRC_EXTRA, { link: target.transport });
+      } else {
+        const f = positionTarget(move);
+        packet = await sendMavlinkPacket(SET_POSITION_TARGET_LOCAL_NED_ID, serializeSetPositionTargetLocalNed({
+          timeBootMs: 0, targetSystem: target.sysid, targetComponent: 1, ...f,
+          afx: 0, afy: 0, afz: 0, yaw: 0,
+        }), SET_POSITION_TARGET_LOCAL_NED_CRC_EXTRA, { link: target.transport });
+      }
+      await target.transport.write(packet);
+      connectionState.packetsSent++;
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, error: err instanceof Error ? err.message : String(err) };
+    }
+  });
+
+  ipcMain.handle(IPC_CHANNELS.MAAME_OPEN_FLIGHT_LOGS, async () => {
+    const dir = maameFlightLogDir();
+    mkdirSync(dir, { recursive: true });
+    return shell.openPath(dir);
+  });
+
+  // Maame: the Pi arming gate; the install waits for PIG_VER, which only the running gate registers.
+  ipcMain.handle(IPC_CHANNELS.MAAME_GATE_INSTALL, async (event) =>
+    installScript(
+      { filename: MAAME_GATE_FILENAME, source: maameGateLuaSource, expectParam: MAAME_GATE_PARAM },
+      (progress) => { if (!event.sender.isDestroyed()) event.sender.send(IPC_CHANNELS.MAAME_GATE_PROGRESS, progress); },
+    ),
+  );
 
   ipcMain.handle(IPC_CHANNELS.EDGETX_HUD_CONFIG_WRITE, async (
     _,

@@ -70,6 +70,9 @@ export function ArmDisarmButton() {
   const isArmed = flight.armed;
   const isMavlink = protocol === 'mavlink';
   const isMsp = protocol === 'msp';
+  // Maame flies with no RC: no force arm (it would skip the Pi gate, GPS and fence checks).
+  const canForceArm = isMavlink && !connectionState?.maameLinks?.length;
+  const forcing = forceArm && canForceArm;
 
   // For MAVLink: extract PreArm reasons from STATUSTEXT messages
   // For MSP: use armingDisabledReasons from telemetry
@@ -96,7 +99,7 @@ export function ArmDisarmButton() {
 
     try {
       if (isMavlink) {
-        await window.electronAPI.mavlinkArmDisarm(!isArmed, !isArmed && forceArm);
+        await window.electronAPI.mavlinkArmDisarm(!isArmed, !isArmed && forcing);
       } else if (isMsp) {
         if (isArmed) {
           await mspDisarm();
@@ -128,12 +131,12 @@ export function ArmDisarmButton() {
           ${!canAttemptArm || isLoading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
           ${isArmed
             ? 'bg-red-500/20 border border-red-500/40 text-red-400 hover:bg-red-500/30'
-            : forceArm && isMavlink
+            : forcing
               ? 'bg-amber-500/20 border border-amber-500/40 text-amber-400 hover:bg-amber-500/30'
               : 'bg-surface border border-border text-content-secondary hover:bg-surface-raised hover:text-content'
           }
         `}
-        title={t('layout:armDisarm.title', { action: isArmed ? t('layout:armDisarm.disarmTitle') : forceArm && isMavlink ? t('layout:armDisarm.forceArmTitle') : t('layout:armDisarm.armTitle') })}
+        title={t('layout:armDisarm.title', { action: isArmed ? t('layout:armDisarm.disarmTitle') : forcing ? t('layout:armDisarm.forceArmTitle') : t('layout:armDisarm.armTitle') })}
       >
         {/* Pulsing dot for armed state */}
         <div className={`w-1.5 h-1.5 rounded-full ${
@@ -146,7 +149,7 @@ export function ArmDisarmButton() {
             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
           </svg>
         ) : (
-          <span>{isArmed ? t('layout:armDisarm.disarm') : forceArm && isMavlink ? t('layout:armDisarm.forceArm') : t('layout:armDisarm.arm')}</span>
+          <span>{isArmed ? t('layout:armDisarm.disarm') : forcing ? t('layout:armDisarm.forceArm') : t('layout:armDisarm.arm')}</span>
         )}
 
         {/* Chevron */}
@@ -163,7 +166,7 @@ export function ArmDisarmButton() {
       {showMenu && (
         <div className="absolute right-0 top-full mt-1.5 w-60 bg-surface-solid border border-border rounded-lg shadow-xl z-50 overflow-hidden">
           {/* Force ARM toggle (MAVLink only) */}
-          {isMavlink && (
+          {canForceArm && (
             <label className="flex items-center gap-3 px-3 py-2.5 hover:bg-surface-raised cursor-pointer transition-colors">
               <input
                 type="checkbox"

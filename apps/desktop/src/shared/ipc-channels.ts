@@ -843,6 +843,17 @@ export const IPC_CHANNELS = {
   // Layer 1 (MAVLink heartbeat)
   COMPANION_HEARTBEAT: 'companion:heartbeat',
   COMPANION_STATUSTEXT: 'companion:statustext',
+  /** Maame: ask the Pi companion (comp 191) to go ACTIVE (opens the FC arming gate) or STANDBY. */
+  MAAME_COMPANION_SET_READY: 'maame:companion-set-ready',
+  /** Maame: Pi health value (NAMED_VALUE_FLOAT from comp 191, e.g. PI_TEMP), see companion/startup-files/maame_status.py. */
+  MAAME_COMPANION_VALUE: 'maame:companion-value',
+  /** Maame: install/update the Pi arming gate Lua on the FC (reboots it), with progress. */
+  MAAME_GATE_INSTALL: 'maame:gate-install',
+  MAAME_GATE_PROGRESS: 'maame:gate-progress',
+  /** Maame: open the folder of per-connection telemetry logs (.tlog). */
+  MAAME_OPEN_FLIGHT_LOGS: 'maame:open-flight-logs',
+  /** Maame cockpit: one GUIDED move (velocity / offset / turn) relative to the heading. */
+  MAAME_COCKPIT_MOVE: 'maame:cockpit-move',
 
   // Layer 2 (Agent — real-time streams via WebSocket)
   COMPANION_METRICS: 'companion:metrics',
@@ -1116,7 +1127,10 @@ export * from './camera-types';
  * Connection options for comms:connect
  */
 export interface ConnectOptions {
-  type: 'serial' | 'tcp' | 'udp';
+  /** 'maame': one vehicle over several links (maameLinks, best first) with automatic failover. */
+  type: 'serial' | 'tcp' | 'udp' | 'maame';
+  /** type 'maame' only: the links to the drone in priority order, e.g. Wi-Fi then SiK. */
+  maameLinks?: Array<{ name: string; options: ConnectOptions }>;
   port?: string;
   baudRate?: number;
   /** Serial only: hardware flow control (RTS/CTS), for radios such as RFD900/868 set to RTSCTS. */
@@ -1137,6 +1151,8 @@ export interface ConnectOptions {
    * letting the OS pick an ephemeral port (0) breaks reconnect.
    */
   udpClientLocalPort?: number;
+  /** UDP link known to be high-bandwidth (Wi-Fi/LAN): no ELRS uplink metering (MAVFTP needs full speed). */
+  udpWideUplink?: boolean;
   /**
    * Force a specific protocol, skipping auto-detection. 'crsf' is the one-way
    * telemetry an ELRS TX backpack broadcasts over WiFi.
@@ -1156,7 +1172,7 @@ export interface ConnectOptions {
 export interface TransportInfoIpc {
   id: string;
   /** Connection kind, from the original config. */
-  kind: 'serial' | 'tcp' | 'udp';
+  kind: ConnectOptions['type'];
   /** Human-readable label for display (e.g. "UDP :14550", "/dev/ttyACM0"). */
   label: string;
   packetsRx: number;
@@ -1387,7 +1403,9 @@ export interface ConnectionState {
   /** Unique board identifier from AUTOPILOT_VERSION uid/uid2 (hex string) */
   boardUid?: string;
   /** Connection type for transport-aware logic (signing, reconnect, etc.) */
-  connectionType?: 'serial' | 'tcp' | 'udp';
+  connectionType?: ConnectOptions['type'];
+  /** Maame multi-link connections only: per-link health, best link first. */
+  maameLinks?: Array<{ name: string; open: boolean; alive: boolean; active: boolean; lastRxAgoMs: number | null }>;
   // MAVLink signing
   signingEnabled?: boolean;
   /** True when we detect the FC is sending signed packets back */

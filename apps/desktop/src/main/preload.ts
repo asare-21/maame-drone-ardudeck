@@ -2842,8 +2842,8 @@ const api = {
     return () => ipcRenderer.removeListener(IPC_CHANNELS.COMPANION_DISCOVER_RESULT, handler);
   },
 
-  onCompanionHeartbeat: (callback: (data: { online: boolean; lastSeen: number; systemType: string }) => void) => {
-    const handler = (_: unknown, data: { online: boolean; lastSeen: number; systemType: string }) => callback(data);
+  onCompanionHeartbeat: (callback: (data: { online: boolean; lastSeen: number; systemType: string; systemStatus?: number }) => void) => {
+    const handler = (_: unknown, data: { online: boolean; lastSeen: number; systemType: string; systemStatus?: number }) => callback(data);
     ipcRenderer.on(IPC_CHANNELS.COMPANION_HEARTBEAT, handler);
     return () => ipcRenderer.removeListener(IPC_CHANNELS.COMPANION_HEARTBEAT, handler);
   },
@@ -2853,6 +2853,38 @@ const api = {
     ipcRenderer.on(IPC_CHANNELS.COMPANION_STATUSTEXT, handler);
     return () => ipcRenderer.removeListener(IPC_CHANNELS.COMPANION_STATUSTEXT, handler);
   },
+
+  /** Maame: Pi health values (PI_TEMP, PI_LOAD, PI_WIFI, PI_THROT, PI_ROUTER). */
+  onMaameCompanionValue: (callback: (data: { name: string; value: number }) => void) => {
+    const handler = (_: unknown, data: { name: string; value: number }) => callback(data);
+    ipcRenderer.on(IPC_CHANNELS.MAAME_COMPANION_VALUE, handler);
+    return () => ipcRenderer.removeListener(IPC_CHANNELS.MAAME_COMPANION_VALUE, handler);
+  },
+
+  /** Maame: upload the bundled Pi arming gate to the FC, reboot it and wait for the gate to run. */
+  maameInstallGate: (): Promise<
+    { status: 'installed' } | { status: 'manual'; targetPath: string; reason: string } | { status: 'error'; message: string }
+  > => ipcRenderer.invoke(IPC_CHANNELS.MAAME_GATE_INSTALL),
+  onMaameGateProgress: (callback: (progress: { phase: string; param?: string; value?: number; written?: number; total?: number }) => void) => {
+    const handler = (_: unknown, progress: { phase: string }) => callback(progress);
+    ipcRenderer.on(IPC_CHANNELS.MAAME_GATE_PROGRESS, handler);
+    return () => { ipcRenderer.removeListener(IPC_CHANNELS.MAAME_GATE_PROGRESS, handler); };
+  },
+
+  /** Maame cockpit: send one GUIDED move; refused unless Maame link, armed and in GUIDED. */
+  maameCockpitMove: (
+    move:
+      | { kind: 'velocity'; forward: number; right: number; up: number; yawRateDeg: number }
+      | { kind: 'offset'; forward: number; right: number; up: number }
+      | { kind: 'turn'; degrees: number },
+  ): Promise<{ ok: boolean; error?: string }> => ipcRenderer.invoke(IPC_CHANNELS.MAAME_COCKPIT_MOVE, move),
+
+  /** Maame: open Documents/MaameDrone/flight-logs (one .tlog per Maame connection). */
+  maameOpenFlightLogs: (): Promise<string> => ipcRenderer.invoke(IPC_CHANNELS.MAAME_OPEN_FLIGHT_LOGS),
+
+  /** Maame: Pi companion ACTIVE (opens the FC arming gate) or STANDBY. */
+  maameCompanionSetReady: (ready: boolean): Promise<boolean> =>
+    ipcRenderer.invoke(IPC_CHANNELS.MAAME_COMPANION_SET_READY, ready),
 
   // Detachable Windows (pop-out)
   openDetachedWindow: (req: OpenDetachedRequest): Promise<string> =>

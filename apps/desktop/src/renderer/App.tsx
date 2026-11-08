@@ -69,6 +69,7 @@ import { useRallyStore } from './stores/rally-store';
 import { useLegacyConfigStore } from './stores/legacy-config-store';
 import { useCliStore, setupCliDataListener, cleanupCliDataListener } from './stores/cli-store';
 import { initializeSettings, useSettingsStore, type VehicleType, type ExperienceLevel } from './stores/settings-store';
+import { installMaameProfile } from './maame/maame-profile';
 import { initAnnouncer } from './lib/announcer';
 import { ExperienceLevelDialog } from './components/ui/ExperienceLevelDialog';
 import { AppTourProvider } from './components/tours/AppTourProvider';
@@ -568,6 +569,7 @@ function App() {
   // Initialize settings on mount
   useEffect(() => {
     initializeSettings();
+    installMaameProfile();
     initAnnouncer();
   }, []);
 
@@ -1167,7 +1169,7 @@ function App() {
             {/* Logo */}
             <div className="welcome-logo mx-auto w-48 h-48 mb-6 rounded-3xl overflow-hidden">
               {/* i18n-exempt */}
-              <img src={logoImage} alt="ArduDeck" className="w-full h-full object-cover" />
+              <img src={logoImage} alt="MaameDrone-ArduDeck" className="w-full h-full object-cover" />
             </div>
 
             <h2 className="text-2xl font-semibold text-content mb-3">

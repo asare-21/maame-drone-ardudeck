@@ -1,3 +1,17 @@
 {
-  "main/ipc-handlers.ts": 42
+  "main/ipc-handlers.ts": 34,
+  "main/maame/redundant-transport.ts": 3,
+  "renderer/maame/MaameCockpitPanel.tsx": 23,
+  "renderer/maame/MaameCompanionCard.tsx": 9,
+  "renderer/maame/MaameConnectCard.tsx": 11,
+  "renderer/maame/MaameCoordinateMissionCard.tsx": 11,
+  "renderer/maame/MaameEmergencyBar.tsx": 14,
+  "renderer/maame/MaameFlightCard.tsx": 13,
+  "renderer/maame/MaameHoverTestCard.tsx": 16,
+  "renderer/maame/MaameLinkBadge.tsx": 1,
+  "renderer/maame/MaameSafetyCard.tsx": 13,
+  "renderer/maame/hover-test.ts": 1,
+  "renderer/maame/maame-profile.ts": 1,
+  "renderer/maame/ready-checks.ts": 11,
+  "renderer/maame/safety-baseline.ts": 8
 }

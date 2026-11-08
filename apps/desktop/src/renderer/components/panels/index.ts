@@ -12,6 +12,7 @@ export { MessagesPanel } from './MessagesPanel';
 export { SafetyMonitorPanel } from './SafetyMonitorPanel';
 export { NtripPanel } from './NtripPanel';
 export { PreflightCheckCard } from '../prearm/PreflightCheckCard';
+export { MaameCockpitPanel } from '../../maame/MaameCockpitPanel';
 export { CameraPanel } from '../camera/CameraPanel';
 export { JoystickPanel } from './JoystickPanel';
 
@@ -43,6 +44,7 @@ export const PANEL_COMPONENTS = {
   joystick: { component: 'JoystickPanel', title: 'Joystick', titleKey: 'panels:registry.joystick' }, // i18n-exempt
   rtk: { component: 'NtripPanel', title: 'RTK / NTRIP', titleKey: 'panels:registry.rtk' }, // i18n-exempt
   preflightCheck: { component: 'PreflightCheckCard', title: 'Pre-flight Checks', titleKey: 'panels:registry.preflightCheck' }, // i18n-exempt
+  maameCockpit: { component: 'MaameCockpitPanel', title: 'Maame Cockpit', titleKey: 'panels:registry.maameCockpit' }, // i18n-exempt
   // Mission panels (for monitoring during flight)
   // Note: missionMap removed - mission data now integrated into unified MapPanel
   waypoints: { component: 'WaypointTablePanel', title: 'Waypoints', titleKey: 'panels:registry.waypoints' }, // i18n-exempt
@@ -73,6 +75,7 @@ import { MessagesPanel as MessagesPanelC } from './MessagesPanel';
 import { SafetyMonitorPanel as SafetyMonitorPanelC } from './SafetyMonitorPanel';
 import { NtripPanel as NtripPanelC } from './NtripPanel';
 import { PreflightCheckCard as PreflightCheckCardC } from '../prearm/PreflightCheckCard';
+import { MaameCockpitPanel as MaameCockpitPanelC } from '../../maame/MaameCockpitPanel';
 import { CameraPanel as CameraPanelC } from '../camera/CameraPanel';
 import { JoystickPanel as JoystickPanelC } from './JoystickPanel';
 import { WaypointTablePanel as WaypointTablePanelC } from '../mission/WaypointTablePanel';
@@ -96,6 +99,7 @@ export const PANEL_RENDERERS: Partial<Record<PanelId, ComponentType>> = {
   joystick: JoystickPanelC,
   rtk: NtripPanelC,
   preflightCheck: PreflightCheckCardC,
+  maameCockpit: MaameCockpitPanelC,
   waypoints: WaypointTablePanelC,
   altitudeProfile: AltitudeProfilePanelC,
   sitlEnvironment: SitlEnvironmentDockPanelC,

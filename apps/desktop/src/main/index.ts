@@ -194,7 +194,7 @@ function maybeShowKeychainNotice(): void {
   if (!isUpgrade) return;
   dialog.showMessageBoxSync({
     type: 'info',
-    title: 'ArduDeck', // i18n-exempt
+    title: 'MaameDrone-ArduDeck', // i18n-exempt
     message: t('main:mainIndex.keychainNoticeTitle'),
     detail: t('main:mainIndex.keychainNoticeDetail'),
     buttons: [t('main:mainIndex.gotIt')],
@@ -412,7 +412,7 @@ app.whenReady().then(() => {
     const resourcesPath = isDev
       ? join(__dirname, '../../resources')
       : join(app.getAppPath(), 'resources');
-    app.dock.setIcon(join(resourcesPath, 'icon.png'));
+    app.dock?.setIcon(join(resourcesPath, 'icon.png'));
   }
 
   // Setup tile cache protocol handler (must be after app.ready)
