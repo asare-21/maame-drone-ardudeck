@@ -5,6 +5,7 @@
  */
 
 import type { MissionCheck } from './mission-check';
+import { MAAME_MAX_WIND_MS, MAAME_WIND_LEVEL_M } from './wind-check';
 
 export const MAAME_CELLS = 6;
 /** Floor per cell when the FC's BATT_ARM_VOLT is unknown; the FC's own value wins when higher. */
@@ -52,10 +53,12 @@ export interface ReadyInput {
   missionCheck: MissionCheck | null;
   /** Only when a SiK radio is part of the Maame connection. */
   sik?: { alive: boolean; rssi: number; noise: number; remRssi: number; remNoise: number } | null;
+  /** Forecast wind at the launch point (m/s); null = no forecast (offline); undefined = not checked. */
+  windMs?: number | null;
 }
 
 export interface ReadyCheck {
-  id: 'link' | 'radio' | 'baseline' | 'gps' | 'battery' | 'pi' | 'prearm' | 'mission' | 'missionSafe';
+  id: 'link' | 'radio' | 'wind' | 'baseline' | 'gps' | 'battery' | 'pi' | 'prearm' | 'mission' | 'missionSafe';
   label: string;
   ok: boolean;
   detail: string;
@@ -98,6 +101,14 @@ export function readyChecks(i: ReadyInput): ReadyCheck[] {
       detail: !i.connected ? 'use "Connect to Maame" (a multi-vehicle/fleet link is not enough)' : i.linkProblem ?? 'connected (Maame link)',
     },
     ...(sikCheck(i.sik) ? [sikCheck(i.sik)!] : []),
+    ...(i.windMs === undefined ? [] : [{
+      id: 'wind' as const,
+      label: 'Wind',
+      ok: i.windMs === null || i.windMs <= MAAME_MAX_WIND_MS,
+      detail: i.windMs === null
+        ? 'no forecast (offline?): check the wind yourself'
+        : `${i.windMs.toFixed(1)} m/s at ${MAAME_WIND_LEVEL_M} m forecast (limit ${MAAME_MAX_WIND_MS})`,
+    }]),
     {
       id: 'baseline',
       label: 'Safety baseline',

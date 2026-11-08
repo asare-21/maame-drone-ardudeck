@@ -10,6 +10,8 @@ import { useParameterStore } from '../stores/parameter-store';
 import { fenceWarningForPoint } from '../utils/fence-check';
 import { checkMission } from './mission-check';
 import { loadHoverCurrent } from './hover-test';
+import { MAAME_WIND_LEVEL_M, windAtLaunch } from './wind-check';
+import type { WindField } from '../../shared/wind-types';
 import { useConnectionStore } from '../stores/connection-store';
 import { useTelemetryStore } from '../stores/telemetry-store';
 import { freshPiHealth, useMaameCompanion } from './companion-store';
@@ -70,6 +72,18 @@ export function MaameFlightCard() {
   const fcParam = useFcParam();
   const homePosition = useMissionStore((s) => s.homePosition);
   const home = homePosition ?? (gps?.lat ? { lat: gps.lat, lon: gps.lon } : null);
+  // Forecast wind at home (80 m), refetched at most every 15 min; offline -> null (reported, not blocking).
+  const [wind, setWind] = useState<{ field: WindField | null; at: number } | null>(null);
+  const homeKey = home ? `${home.lat.toFixed(2)},${home.lon.toFixed(2)}` : null;
+  useEffect(() => {
+    if (!home || (wind && Date.now() - wind.at < 15 * 60_000)) return;
+    const d = 0.05;
+    void window.electronAPI
+      .getWindField({ bbox: { south: home.lat - d, north: home.lat + d, west: home.lon - d, east: home.lon + d }, altitudeM: MAAME_WIND_LEVEL_M })
+      .then((field) => setWind({ field, at: Date.now() }), () => setWind({ field: null, at: Date.now() }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- refetch per home cell, not per render
+  }, [homeKey, nowMs]);
+  const windMs = !home || !wind ? undefined : windAtLaunch(wind.field, home.lat, home.lon, nowMs);
   const missionCheck = missionItems.length
     ? checkMission({ items: missionItems, home, param: fcParam, outsideFence: fenceWarningForPoint, hoverCurrentA: loadHoverCurrent() })
     : null;
@@ -81,6 +95,7 @@ export function MaameFlightCard() {
     connected,
     linkProblem,
     sik,
+    windMs,
     baselineFailures: baseline.filter((r) => !r.ok).length,
     gpsFixType: gps?.fixType ?? 0,
     gpsSats: gps?.satellites ?? 0,

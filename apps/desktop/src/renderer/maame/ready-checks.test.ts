@@ -73,4 +73,11 @@ describe('readyChecks', () => {
     expect(sikCheck({ ...sik, alive: false })).toMatchObject({ ok: false, detail: 'no data from the radio link' });
     expect(failing({ ...good, sik: { ...sik, alive: false } })).toEqual(['radio']);
   });
+
+  it('blocks launch above 8 m/s forecast wind, and does not block without a forecast', () => {
+    expect(readyChecks(good).some((c) => c.id === 'wind')).toBe(false);
+    expect(failing({ ...good, windMs: 6.5 })).toEqual([]);
+    expect(failing({ ...good, windMs: 11 })).toEqual(['wind']);
+    expect(readyChecks({ ...good, windMs: null }).find((c) => c.id === 'wind')).toMatchObject({ ok: true, detail: expect.stringMatching(/no forecast/) });
+  });
 });
