@@ -9,6 +9,7 @@
   "renderer/maame/MaameFlightCard.tsx": 13,
   "renderer/maame/MaameHoverTestCard.tsx": 16,
   "renderer/maame/MaameLinkBadge.tsx": 1,
+  "renderer/maame/MaameMotorVibeCard.tsx": 15,
   "renderer/maame/MaameSafetyCard.tsx": 13,
   "renderer/maame/hover-test.ts": 1,
   "renderer/maame/maame-profile.ts": 1,
